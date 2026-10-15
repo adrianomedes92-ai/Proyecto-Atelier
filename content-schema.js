@@ -47,7 +47,20 @@ export function validateContent(value) {
     "contactEyebrow",
   ])
     site[key] = text(value.site?.[key], key);
-  site.heroImage = image(value.site.heroImage);
+  const legacyHeroImage = image(value.site.heroImage);
+  // La imagen única de versiones anteriores se conserva al actualizar.
+  site.heroImages =
+    value.site.heroImages === undefined
+      ? legacyHeroImage
+        ? [legacyHeroImage]
+        : []
+      : array(value.site.heroImages, "Imágenes de portada", 12).map(image);
+  if (
+    site.heroImages.some((url) => !url) ||
+    new Set(site.heroImages).size !== site.heroImages.length
+  )
+    fail("Las imágenes de portada deben ser válidas y no estar repetidas.");
+  site.heroImage = site.heroImages[0] || "";
   site.steps = array(value.site.steps, "Pasos", 3).map((step) => ({
     title: text(record(step, "Paso").title, "Título del paso", 100),
     description: text(step.description, "Descripción del paso", 500),

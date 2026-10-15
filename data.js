@@ -93,6 +93,7 @@ export let site = {
   contactDescription: "Fabricación personalizada y envíos a todo el país.",
   footer: "Sillones y muebles a medida",
   heroImage: "",
+  heroImages: [],
   heroButton: "Personalizá el tuyo",
   collectionEyebrow: "La colección",
   contactEyebrow: "Conversemos",

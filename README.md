@@ -87,8 +87,21 @@ Las imágenes nuevas se procesan automáticamente **en el servidor** mediante Sh
 
 Las proporciones son recomendaciones: el sistema acepta otras dimensiones y muestra la foto completa sin deformar ni recortar. Las fotos ya cargadas siguen funcionando, pero **no se reconvierten solas**: volvé a cargarlas si querés optimizarlas. Respaldá `.storage` antes de hacerlo.
 
-
 ## Galería del catálogo
+
 Cuando un producto tiene varias fotos, la tarjeta muestra flechas y un contador. Las flechas solo cambian la foto; al tocarla se amplía esa misma imagen en una ventana superpuesta. En la vista ampliada se puede navegar con flechas, con las teclas izquierda/derecha o con deslizamientos horizontales en celular. Se cierra con **Cerrar**, **Escape** o tocando fuera de la ventana. Con una sola foto no se muestran flechas ni contador. La posición se conserva al cambiar de categoría durante la visita. El botón **Personalizar** mantiene el acceso al configurador.
 
 Este cambio utiliza las fotos ya cargadas y no modifica `.storage`. Se verificaron productos sin foto, con una y con varias en navegador de escritorio y móvil, incluyendo gestos táctiles, foco de teclado y aislamiento de clics.
+
+## Presentación de portada
+
+En **Contenido y contacto → Imágenes de portada**, podés cargar hasta 12 fotos, ver las miniaturas, reordenarlas con ↑/↓, reemplazar cada foto o eliminarla. Las subidas usan la optimización WebP y los límites existentes (JPG/PNG/WebP, hasta 20 MB y 60 megapíxeles, sin animación). Si falla una foto, se informa el archivo y el motivo; las fotos ya cargadas permanecen en el borrador. **Guardar cambios** publica el nuevo orden. Quitar una imagen la saca de la presentación; su archivo permanece en el almacenamiento y en tus respaldos.
+
+- Sin fotos: se conserva la composición gráfica original.
+- Una foto: imagen fija, sin controles de presentación.
+- Varias fotos: alternan cada **5 segundos** con un **fundido de 1 segundo**, contador, anterior/siguiente y pausa/reproducción. La siguiente foto se precarga y solo se muestra después de decodificarse, evitando cuadros vacíos.
+- El texto y el botón conservan su panel claro separado para que todas las fotos permitan leerlos. Se respeta la proporción y se muestra la imagen completa en computadora y celular.
+- La rotación se pausa mientras el puntero o el foco están dentro de la presentación, cuando se navega manualmente y cuando la pestaña está oculta. Las teclas izquierda/derecha también permiten navegar al enfocar los controles.
+- Con **reducir movimiento** activado, no hay reproducción automática ni fundido; se puede avanzar manualmente.
+
+Los datos se guardan en `.storage/content.json` y los archivos en `.storage/uploads/`, como el resto del catálogo. La portada única de versiones anteriores se conserva automáticamente como primera imagen; no hace falta volver a subirla. Los respaldos exportados incluyen la lista y su orden; para conservar las fotos, respaldá toda `.storage`.

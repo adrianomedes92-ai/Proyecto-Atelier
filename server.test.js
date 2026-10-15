@@ -113,6 +113,7 @@ test("admin autenticado, fotos, validación, conflicto y persistencia", async ()
       (await sharp(Buffer.from(await photo.arrayBuffer())).metadata()).format,
       "webp",
     );
+    saved.content.site.heroImages = [url];
     saved.content.products[0].image = url;
     saved.content.products[0].images = [url];
     saved.content.materials[0].codes = ["001"];
@@ -157,6 +158,7 @@ test("admin autenticado, fotos, validación, conflicto y persistencia", async ()
     const restored = await (await request("/api/content")).json();
     assert.equal(restored.content.products[0].name, "Modelo actualizado");
     assert.equal(restored.content.products[0].image, url);
+    assert.deepEqual(restored.content.site.heroImages, [url]);
     assert.equal((await fetch(base + url)).status, 200);
     assert.equal(
       (await request("/api/admin/content", "GET", null, cookie)).status,

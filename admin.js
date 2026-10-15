@@ -252,8 +252,20 @@ async function upload(file, kind = "product") {
   if (file.size > 20 * 1024 * 1024) throw Error("La imagen supera los 20 MB.");
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
     throw Error("Elegí una imagen JPG, PNG o WebP.");
-  const bitmap = await createImageBitmap(file);
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    throw Error(
+      "No se puede leer la imagen. Probá exportarla nuevamente como JPG, PNG o WebP sin animación.",
+    );
+  }
+  const pixels = bitmap.width * bitmap.height;
   bitmap.close();
+  if (pixels > 60_000_000)
+    throw Error(
+      "La imagen supera los 60 megapíxeles. Reducí sus dimensiones antes de subirla.",
+    );
   status("Optimizando imagen…");
   const result = await api("/api/admin/upload", {
     method: "POST",
@@ -466,10 +478,96 @@ function renderMaterials() {
         }),
     );
 }
+
+function heroPhotos() {
+  const images = content.site.heroImages;
+  return `<div class="image-guide"><strong>Portada: recomendado 1600 × 1800 px, vertical (8:9).</strong> Dejá aire alrededor del mueble. La foto se adapta sin deformarse ni recortarse; los textos y botones mantienen su panel de fondo claro. Con una imagen se muestra fija; con varias, se alternan cada 5 segundos con fundido de 1 segundo.</div>
+    <p class="hint">Hasta 12 imágenes JPG, PNG o WebP, de hasta 20 MB y 60 megapíxeles cada una, sin animación. Se optimizan a WebP. El orden de las miniaturas es el orden de presentación. Los cambios se publican al guardar.</p>
+    <div class="image-list hero-admin-images">${images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="Vista previa de portada ${i + 1}"><strong>Imagen ${i + 1}</strong><div class="hero-order"><button type="button" class="secondary" data-hero-move="${i}" data-direction="-1" aria-label="Mover imagen ${i + 1} antes" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="secondary" data-hero-move="${i}" data-direction="1" aria-label="Mover imagen ${i + 1} después" ${i === images.length - 1 ? "disabled" : ""}>↓</button></div><label class="hero-replace">Reemplazar<input type="file" data-hero-replace="${i}" accept="image/jpeg,image/png,image/webp"></label><button type="button" class="secondary danger" data-hero-remove="${i}">Eliminar imagen ${i + 1}</button></div>`).join("")}</div>
+    ${images.length ? "" : '<p class="hint">Sin imágenes: la web conserva la portada gráfica original.</p>'}
+    <label class="upload">Agregar imágenes de portada<input type="file" id="hero-upload" accept="image/jpeg,image/png,image/webp" multiple ${images.length >= 12 ? "disabled" : ""}></label>`;
+}
+function bindHeroImages() {
+  const images = content.site.heroImages;
+  const synchronize = () => {
+    content.site.heroImage = images[0] || "";
+    changed();
+  };
+  $("#editor")
+    .querySelectorAll("[data-hero-move]")
+    .forEach(
+      (button) =>
+        (button.onclick = () => {
+          const from = Number(button.dataset.heroMove),
+            to = from + Number(button.dataset.direction);
+          if (to < 0 || to >= images.length) return;
+          [images[from], images[to]] = [images[to], images[from]];
+          synchronize();
+          render();
+          $(
+            `[data-hero-move="${to}"][data-direction="${button.dataset.direction}"]`,
+          )?.focus();
+        }),
+    );
+  $("#editor")
+    .querySelectorAll("[data-hero-remove]")
+    .forEach(
+      (button) =>
+        (button.onclick = () => {
+          images.splice(Number(button.dataset.heroRemove), 1);
+          synchronize();
+          render();
+        }),
+    );
+  async function processFiles(input, replaceIndex) {
+    const files = [...input.files];
+    if (!files.length) return;
+    lock(true);
+    let uploaded = 0;
+    try {
+      if (replaceIndex === undefined && images.length + files.length > 12)
+        throw Error(
+          "Podés cargar hasta 12 imágenes de portada. Eliminá alguna o elegí menos archivos.",
+        );
+      for (const file of files) {
+        try {
+          const url = await upload(file, "hero");
+          if (replaceIndex === undefined) images.push(url);
+          else images[replaceIndex] = url;
+          synchronize();
+          uploaded++;
+        } catch (error) {
+          throw Error(`No se pudo cargar «${file.name}»: ${error.message}`);
+        }
+      }
+      status(
+        replaceIndex === undefined
+          ? `${uploaded} imagen(es) optimizada(s). Revisá las vistas previas y guardá los cambios.`
+          : "Imagen reemplazada en el borrador. Revisá la vista previa y guardá los cambios.",
+      );
+    } catch (error) {
+      status(
+        `${error.message}${uploaded ? ` Se conservaron ${uploaded} imagen(es) cargada(s) en el borrador.` : ""}`,
+        true,
+      );
+    } finally {
+      lock(false);
+      render();
+    }
+  }
+  $("#hero-upload").onchange = (event) => processFiles(event.target);
+  $("#editor")
+    .querySelectorAll("[data-hero-replace]")
+    .forEach(
+      (input) =>
+        (input.onchange = () =>
+          processFiles(input, Number(input.dataset.heroReplace))),
+    );
+}
 function renderSite() {
   const s = content.site;
   $("#editor").innerHTML =
-    `<section class="editor-card"><h2>Contenido de la web</h2><div class="field-grid">${field("Nombre de la marca", "name", s.name)}${field("Presentación breve", "tagline", s.tagline)}<div class="full">${textarea("Título de inicio (una línea por renglón)", "heroTitle", s.heroTitle)}${textarea("Descripción de inicio", "heroDescription", s.heroDescription)}${field("Fabricación y envíos", "shipping", s.shipping)}</div>${field("Título del catálogo", "collectionTitle", s.collectionTitle)}${field("Descripción del catálogo", "collectionDescription", s.collectionDescription)}${textarea("Título de contacto", "contactTitle", s.contactTitle)}${textarea("Descripción de contacto", "contactDescription", s.contactDescription)}${field("Texto del pie de página", "footer", s.footer)}${field("Botón de inicio", "heroButton", s.heroButton)}${field("Etiqueta del catálogo", "collectionEyebrow", s.collectionEyebrow)}${field("Etiqueta de contacto", "contactEyebrow", s.contactEyebrow)}</div><h3>Cómo funciona</h3>${s.steps.map((step, i) => `<div class="field-grid">${field("Título del paso " + (i + 1), "step-title-" + i, step.title)}${field("Descripción del paso " + (i + 1), "step-description-" + i, step.description)}</div>`).join("")}<h3>Imagen de inicio</h3>${photos(s.heroImage ? [s.heroImage] : [], "hero")}<h2>Contacto</h2><div class="field-grid">${field("Teléfono visible", "display", content.contact.display)}${field("WhatsApp internacional (solo dígitos)", "whatsappInternational", content.contact.whatsappInternational, 'inputmode="numeric"')}${textarea("Personas de contacto (una por línea)", "people", content.contact.people.join("\n"))}</div><p class="hint">Confirmá el prefijo internacional con la fábrica. Ejemplo de formato: código de país + número, sin +, espacios ni guiones. Dejalo vacío para deshabilitar WhatsApp.</p></section>`;
+    `<section class="editor-card"><h2>Contenido de la web</h2><div class="field-grid">${field("Nombre de la marca", "name", s.name)}${field("Presentación breve", "tagline", s.tagline)}<div class="full">${textarea("Título de inicio (una línea por renglón)", "heroTitle", s.heroTitle)}${textarea("Descripción de inicio", "heroDescription", s.heroDescription)}${field("Fabricación y envíos", "shipping", s.shipping)}</div>${field("Título del catálogo", "collectionTitle", s.collectionTitle)}${field("Descripción del catálogo", "collectionDescription", s.collectionDescription)}${textarea("Título de contacto", "contactTitle", s.contactTitle)}${textarea("Descripción de contacto", "contactDescription", s.contactDescription)}${field("Texto del pie de página", "footer", s.footer)}${field("Botón de inicio", "heroButton", s.heroButton)}${field("Etiqueta del catálogo", "collectionEyebrow", s.collectionEyebrow)}${field("Etiqueta de contacto", "contactEyebrow", s.contactEyebrow)}</div><h3>Cómo funciona</h3>${s.steps.map((step, i) => `<div class="field-grid">${field("Título del paso " + (i + 1), "step-title-" + i, step.title)}${field("Descripción del paso " + (i + 1), "step-description-" + i, step.description)}</div>`).join("")}<h3>Imágenes de portada</h3>${heroPhotos()}<h2>Contacto</h2><div class="field-grid">${field("Teléfono visible", "display", content.contact.display)}${field("WhatsApp internacional (solo dígitos)", "whatsappInternational", content.contact.whatsappInternational, 'inputmode="numeric"')}${textarea("Personas de contacto (una por línea)", "people", content.contact.people.join("\n"))}</div><p class="hint">Confirmá el prefijo internacional con la fábrica. Ejemplo de formato: código de país + número, sin +, espacios ni guiones. Dejalo vacío para deshabilitar WhatsApp.</p></section>`;
   $("#editor")
     .querySelectorAll("[data-field]")
     .forEach(
@@ -490,7 +588,7 @@ function renderSite() {
           changed();
         }),
     );
-  bindImages();
+  bindHeroImages();
 }
 function renderBackup() {
   $("#editor").innerHTML =

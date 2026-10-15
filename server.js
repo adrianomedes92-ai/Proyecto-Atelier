@@ -23,7 +23,7 @@ async function atomic(file, data) {
 let saved;
 try {
   saved = JSON.parse(await readFile(contentFile, "utf8"));
-  validateContent(saved.content);
+  saved.content = validateContent(saved.content);
 } catch (e) {
   if (e.code !== "ENOENT") throw e;
   saved = { revision: 0, content: validateContent(initialContent()) };
@@ -127,6 +127,7 @@ const publicFiles = new Set([
   "content-schema.js",
   "image-urls.js",
   "product-gallery.js",
+  "hero-slideshow.js",
 ]);
 const server = http.createServer(async (req, res) => {
   res.setHeader("X-Content-Type-Options", "nosniff");

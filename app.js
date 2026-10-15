@@ -1,3 +1,4 @@
+import { setupHeroSlideshow } from "./hero-slideshow.js";
 import { setupProductGallery } from "./product-gallery.js";
 import {
   products,
@@ -67,9 +68,7 @@ function renderSite() {
   $("footer span").textContent = site.name;
   $("footer span:nth-child(2)").textContent = site.footer;
   $('meta[name="description"]').content = site.heroDescription;
-  if (site.heroImage)
-    $(".hero-art").innerHTML =
-      `<img src="${esc(site.heroImage)}" alt="${esc(site.name)}: colección de muebles">`;
+  setupHeroSlideshow($(".hero-art"), site);
   const direct = whatsappLink(
     contact.whatsappInternational,
     `Hola, ${site.name}. Quiero consultar por sus productos.`,
