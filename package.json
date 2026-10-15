@@ -1,1 +1,14 @@
-{"name":"proyecto-atelier","private":true,"type":"module","scripts":{"dev":"node server.js","start":"node server.js","test":"node --test"},"engines":{"node":">=22"}}
+{
+  "name": "proyecto-atelier",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "test": "node --test",
+    "admin:password": "node admin-password.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

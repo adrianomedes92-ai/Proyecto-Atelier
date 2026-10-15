@@ -1,0 +1,236 @@
+[hidden] {
+  display: none !important;
+}
+.admin-main {
+  max-width: 1200px;
+  margin: 40px auto;
+  padding: 0 30px;
+}
+#login {
+  max-width: 480px;
+  margin: 60px auto;
+}
+#login h1 {
+  font-size: 48px;
+  letter-spacing: -2px;
+}
+#login-form {
+  margin-top: 35px;
+}
+.admin-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+.admin-title h1 {
+  font-size: 42px;
+  letter-spacing: -2px;
+  margin: 16px 0;
+}
+.admin-title p {
+  font-size: 12px;
+  color: var(--muted);
+}
+.actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.secondary {
+  border: 1px solid var(--line);
+  background: transparent;
+  padding: 12px 16px;
+  color: var(--ink);
+  border-radius: 3px;
+}
+.admin-tabs {
+  display: flex;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding: 24px 0;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+.admin-tabs button {
+  border: 0;
+  background: transparent;
+  padding: 12px 18px;
+  color: var(--muted);
+}
+.admin-tabs button[aria-pressed="true"] {
+  background: var(--ink);
+  color: white;
+  border-radius: 3px;
+}
+.editor-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 30px;
+}
+.entity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.entity-list button {
+  border: 1px solid var(--line);
+  background: white;
+  text-align: left;
+  color: var(--ink);
+  padding: 14px;
+  border-radius: 4px;
+}
+.entity-list button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: #e8ecdf;
+}
+.entity-list small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 4px;
+}
+.editor-card {
+  background: #fffefa;
+  border: 1px solid var(--line);
+  padding: 28px;
+  border-radius: 5px;
+}
+.editor-card h2 {
+  font-size: 28px;
+}
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 20px;
+}
+.field-grid .full {
+  grid-column: 1/-1;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.check input {
+  width: auto;
+  margin: 0;
+}
+.checks {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.checks label {
+  font-size: 12px;
+}
+.danger {
+  color: #a03a2a;
+  border-color: #e0b9b0;
+}
+.editor-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+.image-list {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.image-item {
+  width: 135px;
+  border: 1px solid var(--line);
+  padding: 8px;
+}
+.image-item img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+}
+.image-item button {
+  font-size: 11px;
+  margin: 6px 0 0;
+  width: 100%;
+}
+.upload {
+  max-width: 400px;
+}
+.swatch-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 90px;
+  gap: 12px;
+  align-items: center;
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+}
+.swatch-row img {
+  width: 65px;
+  height: 65px;
+  object-fit: cover;
+}
+.swatch-row label {
+  margin: 0;
+}
+#status {
+  position: sticky;
+  bottom: 15px;
+  background: var(--ink);
+  color: white;
+  padding: 14px 20px;
+  border-radius: 4px;
+  font-size: 13px;
+  white-space: pre-line;
+}
+#status:empty {
+  display: none;
+}
+.error {
+  color: #a03a2a;
+}
+.import-field {
+  max-width: 400px;
+}
+@media (max-width: 750px) {
+  .admin-main {
+    padding: 0 16px;
+    margin: 25px auto;
+  }
+  .admin-title {
+    flex-direction: column;
+    align-items: start;
+  }
+  .admin-title h1 {
+    font-size: 34px;
+  }
+  .admin-tabs {
+    gap: 4px;
+  }
+  .admin-tabs button {
+    padding: 10px;
+  }
+  .editor-grid {
+    grid-template-columns: 1fr;
+  }
+  .entity-list {
+    max-height: 200px;
+    overflow: auto;
+  }
+  .editor-card {
+    padding: 18px;
+  }
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+  .swatch-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .swatch-row button {
+    grid-column: 1/-1;
+  }
+  .actions {
+    flex-wrap: wrap;
+  }
+}

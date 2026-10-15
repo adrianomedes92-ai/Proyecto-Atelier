@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es-AR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Administración · Proyecto Atelier</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="admin.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/">PROYECTO <strong>ATELIER</strong></a
+      ><a href="/" target="_blank" rel="noopener">Ver la web ↗</a>
+    </header>
+    <main class="admin-main">
+      <div id="login">
+        <span class="eyebrow">ADMINISTRACIÓN</span>
+        <h1>Tu catálogo,<br />a tu manera.</h1>
+        <p>Ingresá para administrar los productos y el contenido de la web.</p>
+        <form id="login-form">
+          <label
+            >Contraseña<input
+              type="password"
+              name="password"
+              autocomplete="current-password"
+              required /></label
+          ><button class="button">Ingresar →</button>
+        </form>
+        <p id="setup-help" class="hint" hidden>
+          Primero configurá tu contraseña: en la terminal ejecutá
+          <code>npm run admin:password</code> y reiniciá la web.
+        </p>
+      </div>
+      <div id="panel" hidden>
+        <div class="admin-title">
+          <div>
+            <span class="eyebrow">ADMINISTRACIÓN</span>
+            <h1>El taller digital.</h1>
+            <p id="save-state">Sin cambios pendientes.</p>
+          </div>
+          <div class="actions">
+            <button id="save" class="button">Guardar cambios</button
+            ><button id="logout" class="secondary">Salir</button>
+          </div>
+        </div>
+        <nav class="admin-tabs" aria-label="Secciones del panel">
+          <button data-tab="products" aria-pressed="true">Productos</button
+          ><button data-tab="materials">Telas y colores</button
+          ><button data-tab="site">Contenido y contacto</button
+          ><button data-tab="backup">Respaldo</button>
+        </nav>
+        <div id="editor"></div>
+      </div>
+      <p id="status" role="status" aria-live="polite"></p>
+    </main>
+    <script type="module" src="admin.js"></script>
+  </body>
+</html>

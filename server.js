@@ -1,5 +1,298 @@
-import http from 'node:http';
-import {readFile} from 'node:fs/promises';
-import {resolve,extname} from 'node:path';
-const root=process.cwd();
-http.createServer(async(req,res)=>{try{const path=resolve(root,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname));if(path!==root&&!path.startsWith(root+'/'))throw Error();if(path.includes('/.')||!['.html','.css','.js','.svg','.jpg','.png','.webp'].includes(extname(path))&&path!==root)throw Error();const file=path===root?root+'/index.html':path;const data=await readFile(file);res.setHeader('Content-Type',({'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.svg':'image/svg+xml','.jpg':'image/jpeg','.png':'image/png'})[extname(file)]||'application/octet-stream');res.end(data)}catch{res.writeHead(404);res.end('No encontrado')}}).listen(Number(process.env.PORT)||3000,'0.0.0.0',()=>console.log('Proyecto Atelier iniciado en puerto '+(process.env.PORT||3000)));
+import http from "node:http";
+import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
+import { resolve, extname, join } from "node:path";
+import {
+  randomBytes,
+  randomUUID,
+  scryptSync,
+  timingSafeEqual,
+} from "node:crypto";
+import { initialContent } from "./data.js";
+import { validateContent } from "./content-schema.js";
+const root = process.cwd(),
+  store = resolve(process.env.ATELIER_DATA_DIR || join(root, ".storage"));
+await mkdir(join(store, "uploads"), { recursive: true });
+const contentFile = join(store, "content.json"),
+  credentialFile = join(store, "admin.json");
+async function atomic(file, data) {
+  const temp = file + "." + randomUUID() + ".tmp";
+  await writeFile(temp, JSON.stringify(data, null, 2), { mode: 0o600 });
+  await rename(temp, file);
+}
+let saved;
+try {
+  saved = JSON.parse(await readFile(contentFile, "utf8"));
+  validateContent(saved.content);
+} catch (e) {
+  if (e.code !== "ENOENT") throw e;
+  saved = { revision: 0, content: validateContent(initialContent()) };
+  await atomic(contentFile, saved);
+}
+let credentials;
+try {
+  credentials = JSON.parse(await readFile(credentialFile, "utf8"));
+} catch (e) {
+  if (e.code !== "ENOENT") throw e;
+}
+if (process.env.ADMIN_PASSWORD) {
+  if (process.env.ADMIN_PASSWORD.length < 12)
+    throw Error("ADMIN_PASSWORD debe tener al menos 12 caracteres.");
+  const salt = randomBytes(16).toString("hex");
+  credentials = {
+    salt,
+    hash: scryptSync(process.env.ADMIN_PASSWORD, salt, 64).toString("hex"),
+  };
+}
+const sessions = new Map(),
+  attempts = new Map();
+let saving = false;
+const json = (res, status, data) => {
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  res.end(JSON.stringify(data));
+};
+async function body(req, max = 1024 * 1024) {
+  let size = 0;
+  const parts = [];
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > max)
+      throw Object.assign(Error("Archivo o contenido demasiado grande."), {
+        status: 413,
+      });
+    parts.push(chunk);
+  }
+  return Buffer.concat(parts);
+}
+async function input(req) {
+  try {
+    return JSON.parse((await body(req)).toString());
+  } catch (e) {
+    if (e.status) throw e;
+    throw Object.assign(Error("JSON inválido."), { status: 400 });
+  }
+}
+function session(req) {
+  const token = (req.headers.cookie || "")
+    .split(";")
+    .map((s) => s.trim())
+    .find((s) => s.startsWith("atelier_session="))
+    ?.slice(16);
+  const item = sessions.get(token);
+  if (item && item.expires > Date.now()) return { token, ...item };
+  if (token) sessions.delete(token);
+  return null;
+}
+function sameOrigin(req) {
+  if (req.headers["sec-fetch-site"] === "cross-site") return false;
+  try {
+    return (
+      req.headers.origin &&
+      new URL(req.headers.origin).host === req.headers.host
+    );
+  } catch {
+    return false;
+  }
+}
+const publicFiles = new Set([
+  "index.html",
+  "style.css",
+  "app.js",
+  "data.js",
+  "quote.js",
+  "admin.html",
+  "admin.js",
+  "admin.css",
+  "content-schema.js",
+]);
+const server = http.createServer(async (req, res) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "same-origin");
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; img-src 'self' blob: data:; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+  );
+  try {
+    const pathname = decodeURIComponent(
+      new URL(req.url, "http://localhost").pathname,
+    );
+    if (pathname.startsWith("/api/")) {
+      if (!["GET", "POST", "PUT"].includes(req.method))
+        return json(res, 405, { error: "Método no permitido." });
+      if (req.method !== "GET" && !sameOrigin(req))
+        return json(res, 403, { error: "Solicitud de origen no permitido." });
+      if (pathname === "/api/content" && req.method === "GET")
+        return json(res, 200, {
+          revision: saved.revision,
+          content: {
+            ...saved.content,
+            products: saved.content.products.filter((p) => p.visible),
+          },
+        });
+      if (pathname === "/api/admin/session" && req.method === "GET")
+        return json(res, 200, {
+          authenticated: !!session(req),
+          configured: !!credentials,
+        });
+      if (pathname === "/api/admin/login" && req.method === "POST") {
+        if (!credentials)
+          return json(res, 503, {
+            error:
+              "Configurá la contraseña en la terminal con npm run admin:password y reiniciá el servidor.",
+          });
+        const key = req.socket.remoteAddress,
+          entry = attempts.get(key) || { count: 0, until: 0 };
+        if (entry.until > Date.now())
+          return json(res, 429, {
+            error: "Demasiados intentos. Esperá 15 minutos.",
+          });
+        const { password } = await input(req);
+        const hash = scryptSync(
+          typeof password === "string" ? password.slice(0, 1024) : "",
+          credentials.salt,
+          64,
+        );
+        if (!timingSafeEqual(hash, Buffer.from(credentials.hash, "hex"))) {
+          entry.count++;
+          if (entry.count >= 5) {
+            entry.until = Date.now() + 900000;
+            entry.count = 0;
+          }
+          attempts.set(key, entry);
+          return json(res, 401, { error: "Contraseña incorrecta." });
+        }
+        attempts.delete(key);
+        const token = randomBytes(32).toString("hex");
+        sessions.set(token, { expires: Date.now() + 8 * 3600000 });
+        res.setHeader(
+          "Set-Cookie",
+          `atelier_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${process.env.COOKIE_SECURE === "true" ? "; Secure" : ""}`,
+        );
+        return json(res, 200, { ok: true });
+      }
+      if (!session(req))
+        return json(res, 401, { error: "Ingresá al panel para continuar." });
+      if (pathname === "/api/admin/logout" && req.method === "POST") {
+        sessions.delete(session(req).token);
+        res.setHeader(
+          "Set-Cookie",
+          "atelier_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0",
+        );
+        return json(res, 200, { ok: true });
+      }
+      if (pathname === "/api/admin/content" && req.method === "GET")
+        return json(res, 200, saved);
+      if (pathname === "/api/admin/content" && req.method === "PUT") {
+        const data = await input(req);
+        if (saving || data.revision !== saved.revision)
+          return json(res, 409, {
+            error:
+              "El contenido cambió en otra sesión. Copiá tus cambios y recargá el panel antes de guardar.",
+          });
+        const content = validateContent(data.content);
+        saving = true;
+        try {
+          const next = { revision: saved.revision + 1, content };
+          await atomic(contentFile, next);
+          saved = next;
+          return json(res, 200, { revision: saved.revision, ok: true });
+        } finally {
+          saving = false;
+        }
+      }
+      if (pathname === "/api/admin/upload" && req.method === "POST") {
+        const bytes = await body(req, 8 * 1024 * 1024);
+        let extension;
+        if (
+          bytes.length > 12 &&
+          bytes
+            .subarray(0, 8)
+            .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+        )
+          extension = "png";
+        else if (
+          bytes.length > 12 &&
+          bytes[0] === 255 &&
+          bytes[1] === 216 &&
+          bytes[2] === 255
+        )
+          extension = "jpg";
+        else if (
+          bytes.length > 12 &&
+          bytes.toString("ascii", 0, 4) === "RIFF" &&
+          bytes.toString("ascii", 8, 12) === "WEBP"
+        )
+          extension = "webp";
+        if (!extension)
+          return json(res, 400, {
+            error: "Usá una imagen JPG, PNG o WebP válida, de hasta 8 MB.",
+          });
+        const name = randomUUID() + "." + extension;
+        await writeFile(join(store, "uploads", name), bytes, { flag: "wx" });
+        return json(res, 201, { url: "/uploads/" + name });
+      }
+      return json(res, 404, { error: "No encontrado." });
+    }
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      res.writeHead(405);
+      return res.end();
+    }
+    let file;
+    if (/^\/uploads\/[a-f0-9-]+\.(jpg|png|webp)$/.test(pathname))
+      file = join(store, pathname.slice(1));
+    else if (/^\/images\/[a-zA-Z0-9_/-]+\.(jpg|jpeg|png|webp)$/.test(pathname))
+      file = join(root, pathname);
+    else {
+      const name =
+        pathname === "/"
+          ? "index.html"
+          : pathname === "/admin" || pathname === "/admin/"
+            ? "admin.html"
+            : pathname.slice(1);
+      if (!publicFiles.has(name)) {
+        res.writeHead(404);
+        return res.end("No encontrado");
+      }
+      file = join(root, name);
+    }
+    const data = await readFile(file);
+    res.setHeader(
+      "Content-Type",
+      {
+        ".html": "text/html; charset=utf-8",
+        ".css": "text/css",
+        ".js": "text/javascript",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+      }[extname(file)],
+    );
+    res.setHeader("Cache-Control", "no-cache");
+    res.end(req.method === "HEAD" ? undefined : data);
+  } catch (e) {
+    if (e.code === "ENOENT") {
+      res.writeHead(404);
+      res.end("No encontrado");
+    } else {
+      console.error(
+        e.status ? e.message : "Error interno al procesar solicitud",
+      );
+      json(res, e.status || 500, {
+        error: e.status ? e.message : "No se pudo completar la operación.",
+      });
+    }
+  }
+});
+const port = process.env.PORT === undefined ? 3000 : Number(process.env.PORT);
+server.listen(port, process.env.HOST || "127.0.0.1", () => {
+  console.log(
+    `Proyecto Atelier: http://localhost:${server.address().port}\nPanel: http://localhost:${server.address().port}/admin`,
+  );
+  if (!credentials)
+    console.log(
+      "Para habilitar el panel: npm run admin:password, luego reiniciar el servidor.",
+    );
+});
