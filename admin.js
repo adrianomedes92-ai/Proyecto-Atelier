@@ -528,6 +528,7 @@ function renderBackup() {
 try {
   const state = await api("/api/admin/session");
   $("#setup-help").hidden = state.configured;
+  $("#development-help").hidden = !state.developmentLogin;
   if (state.authenticated) await enter();
 } catch (e) {
   status(e.message, true);

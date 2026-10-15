@@ -28,19 +28,37 @@ try {
   saved = { revision: 0, content: validateContent(initialContent()) };
   await atomic(contentFile, saved);
 }
+const developmentLogin = process.argv.includes("--development-login");
+const host = process.env.HOST || "127.0.0.1";
+if (
+  developmentLogin &&
+  (process.env.NODE_ENV === "production" ||
+    !["127.0.0.1", "localhost", "::1"].includes(host))
+) {
+  throw Error(
+    "La contraseña de desarrollo solo está disponible en localhost y fuera de producción. Usá npm start con una contraseña propia.",
+  );
+}
 let credentials;
 try {
   credentials = JSON.parse(await readFile(credentialFile, "utf8"));
 } catch (e) {
   if (e.code !== "ENOENT") throw e;
 }
-if (process.env.ADMIN_PASSWORD) {
+if (process.env.ADMIN_PASSWORD && !developmentLogin) {
   if (process.env.ADMIN_PASSWORD.length < 12)
     throw Error("ADMIN_PASSWORD debe tener al menos 12 caracteres.");
   const salt = randomBytes(16).toString("hex");
   credentials = {
     salt,
     hash: scryptSync(process.env.ADMIN_PASSWORD, salt, 64).toString("hex"),
+  };
+}
+if (developmentLogin) {
+  const salt = randomBytes(16).toString("hex");
+  credentials = {
+    salt,
+    hash: scryptSync("atelier123", salt, 64).toString("hex"),
   };
 }
 const sessions = new Map(),
@@ -135,6 +153,7 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, {
           authenticated: !!session(req),
           configured: !!credentials,
+          developmentLogin,
         });
       if (pathname === "/api/admin/login" && req.method === "POST") {
         if (!credentials)
@@ -287,10 +306,14 @@ const server = http.createServer(async (req, res) => {
   }
 });
 const port = process.env.PORT === undefined ? 3000 : Number(process.env.PORT);
-server.listen(port, process.env.HOST || "127.0.0.1", () => {
+server.listen(port, host, () => {
   console.log(
     `Proyecto Atelier: http://localhost:${server.address().port}\nPanel: http://localhost:${server.address().port}/admin`,
   );
+  if (developmentLogin)
+    console.log(
+      "Modo local de desarrollo: contraseña del panel atelier123. La contraseña personal guardada no se modifica.",
+    );
   if (!credentials)
     console.log(
       "Para habilitar el panel: npm run admin:password, luego reiniciar el servidor.",

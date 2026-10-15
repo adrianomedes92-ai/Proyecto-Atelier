@@ -193,3 +193,77 @@ test("configurar contraseña desde terminal sin guardarla en texto plano", async
     await rm(dir, { recursive: true, force: true });
   }
 });
+test("contraseña simple solo en desarrollo local y sin cambiar credenciales guardadas", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "atelier-dev-"));
+  const fs = await import("node:fs/promises");
+  const crypto = await import("node:crypto");
+  const original = JSON.stringify({
+    salt: "test-salt",
+    hash: crypto
+      .scryptSync("contraseña-personal", "test-salt", 64)
+      .toString("hex"),
+  });
+  await fs.writeFile(join(dir, "admin.json"), original);
+  const env = {
+    ...process.env,
+    HOST: "127.0.0.1",
+    PORT: "0",
+    NODE_ENV: "development",
+    ATELIER_DATA_DIR: dir,
+  };
+  delete env.ADMIN_PASSWORD;
+  let child;
+  try {
+    child = spawn(process.execPath, ["server.js", "--development-login"], {
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const port = await new Promise((resolve, reject) => {
+      let output = "";
+      const timeout = setTimeout(() => reject(Error("No inició")), 10000);
+      child.stdout.on("data", (d) => {
+        output += d;
+        const match = output.match(/Panel: http:\/\/localhost:(\d+)/);
+        if (match) {
+          clearTimeout(timeout);
+          resolve(match[1]);
+        }
+      });
+      child.once("exit", () => {
+        clearTimeout(timeout);
+        reject(Error("Servidor terminó"));
+      });
+    });
+    const base = "http://127.0.0.1:" + port;
+    assert.equal(
+      (await (await fetch(base + "/api/admin/session")).json())
+        .developmentLogin,
+      true,
+    );
+    const login = await fetch(base + "/api/admin/login", {
+      method: "POST",
+      headers: { Origin: base, "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "atelier123" }),
+    });
+    assert.equal(login.status, 200);
+    assert.equal(await fs.readFile(join(dir, "admin.json"), "utf8"), original);
+    const exited = once(child, "exit");
+    child.kill();
+    await exited;
+    for (const overrides of [{ NODE_ENV: "production" }, { HOST: "0.0.0.0" }]) {
+      child = spawn(process.execPath, ["server.js", "--development-login"], {
+        env: { ...env, ...overrides },
+        stdio: "ignore",
+      });
+      const [code] = await once(child, "exit");
+      assert.notEqual(code, 0);
+    }
+  } finally {
+    if (child?.exitCode === null) {
+      const exited = once(child, "exit");
+      child.kill();
+      await exited;
+    }
+    await rm(dir, { recursive: true, force: true });
+  }
+});

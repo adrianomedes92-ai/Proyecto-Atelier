@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node server.js",
+    "dev": "node server.js --development-login",
     "start": "node server.js",
     "test": "node --test",
     "admin:password": "node admin-password.js"

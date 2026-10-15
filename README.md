@@ -10,15 +10,20 @@ Web en español rioplatense para explorar y personalizar muebles y consultar por
 
 No hace falta `npm install`. No usar Live Server ni abrir el HTML como archivo: el panel y el catálogo necesitan el servidor Node.
 
-## Habilitar el panel por primera vez
+## Entrar al panel durante el desarrollo
+
+Ejecutá `npm run dev`, entrá a **http://localhost:3000/admin** y usá **`atelier123`**. No hace falta configurar una contraseña por terminal. Este modo se limita a localhost y no puede iniciarse con `NODE_ENV=production` ni un `HOST` público.
+
+La contraseña sencilla se usa solo durante esta ejecución. No modifica la contraseña personal guardada ni elimina productos o fotos. Reiniciar cierra las sesiones anteriores. El panel muestra cuándo está activo el modo de desarrollo. Los usuarios individuales y su administración quedan para una próxima versión.
+
+## Usar una contraseña propia
 
 1. Detené el servidor con `Ctrl+C`.
-2. Ejecutá `npm run admin:password`.
-3. Ingresá dos veces una contraseña de al menos 12 caracteres. Por privacidad no se muestran los caracteres mientras escribís.
-4. Volvé a ejecutar `npm run dev`.
-5. Entrá a **http://localhost:3000/admin** e ingresá con esa contraseña.
+2. Ejecutá `npm run admin:password` y escribí dos veces una contraseña de al menos 12 caracteres. No se muestran los caracteres mientras escribís.
+3. Ejecutá **`npm start`**, que no utiliza la contraseña de desarrollo.
+4. Entrá a **http://localhost:3000/admin** con tu contraseña personal.
 
-Para cambiarla o recuperarla, repetí estos pasos. Reiniciar cierra las sesiones anteriores. La contraseña se guarda como hash con salt, nunca como texto plano. El panel utiliza una sesión de ocho horas, con cookie HttpOnly y control de origen para las operaciones que modifican datos. Después de cinco intentos incorrectos, el acceso desde esa dirección se limita durante 15 minutos.
+Para recuperarla, repetí estos pasos. Se guarda como hash con salt, nunca como texto plano. El panel utiliza una sesión de ocho horas con cookie HttpOnly y control de origen. Después de cinco intentos incorrectos, el acceso desde esa dirección se limita durante 15 minutos.
 
 ## Administrar sin tocar código
 
