@@ -1,18 +1,22 @@
 # Proyecto Atelier
 
-Web en español rioplatense para explorar y personalizar muebles y consultar por WhatsApp, sin precios ni pagos. Panel de administración con contenido persistente. Node.js 22 o superior. Usa Sharp para optimizar las imágenes.
+Web en español rioplatense para explorar y personalizar muebles y consultar por WhatsApp, sin precios ni pagos. Panel de administración con contenido persistente. Para desarrollo local usa Node.js 22 o superior y Sharp. Para Hostinger incluye una API PHP 8.2+ con MySQL y optimización mediante GD/Imagick.
+
+## Publicar en Hostinger
+
+Seguí [HOSTINGER.md](HOSTINGER.md). El comando **`npm run build:hostinger`** genera el paquete PHP/MySQL e incluye los datos y fotos actuales de `.storage` si están disponibles. No subas el repositorio entero al hosting. La instalación y los datos de acceso se configuran de forma privada en Hostinger; no se publican al generar el ZIP.
 
 ## Correr en Visual Studio Code (Windows, macOS o Linux)
 
 1. Abrí la carpeta **Proyecto-Atelier**, donde está `package.json`.
 2. Abrí **Terminal → Nueva terminal** y ejecutá `npm run dev`.
-3. Visitá **http://localhost:3000**. Para detener el servidor, usá `Ctrl+C`.
+3. Visitá **http://127.0.0.1:3000**. Para detener el servidor, usá `Ctrl+C`.
 
 La primera vez, y después de actualizar dependencias, ejecutá **`npm ci`** antes de `npm run dev`. No usar Live Server ni abrir el HTML como archivo: el panel y el catálogo necesitan el servidor Node.
 
 ## Entrar al panel durante el desarrollo
 
-Ejecutá `npm run dev`, entrá a **http://localhost:3000/admin** y usá **`atelier123`**. No hace falta configurar una contraseña por terminal. Este modo se limita a localhost y no puede iniciarse con `NODE_ENV=production` ni un `HOST` público.
+Ejecutá `npm run dev`, entrá a **http://127.0.0.1:3000/admin** y usá **`atelier123`**. No hace falta configurar una contraseña por terminal. Este modo se limita a localhost y no puede iniciarse con `NODE_ENV=production` ni un `HOST` público.
 
 La contraseña sencilla se usa solo durante esta ejecución. No modifica la contraseña personal guardada ni elimina productos o fotos. Reiniciar cierra las sesiones anteriores. El panel muestra cuándo está activo el modo de desarrollo. Los usuarios individuales y su administración quedan para una próxima versión.
 
@@ -21,7 +25,7 @@ La contraseña sencilla se usa solo durante esta ejecución. No modifica la cont
 1. Detené el servidor con `Ctrl+C`.
 2. Ejecutá `npm run admin:password` y escribí dos veces una contraseña de al menos 12 caracteres. No se muestran los caracteres mientras escribís.
 3. Ejecutá **`npm start`**, que no utiliza la contraseña de desarrollo.
-4. Entrá a **http://localhost:3000/admin** con tu contraseña personal.
+4. Entrá a **http://127.0.0.1:3000/admin** con tu contraseña personal.
 
 Para recuperarla, repetí estos pasos. Se guarda como hash con salt, nunca como texto plano. El panel utiliza una sesión de ocho horas con cookie HttpOnly y control de origen. Después de cinco intentos incorrectos, el acceso desde esa dirección se limita durante 15 minutos.
 
@@ -38,7 +42,7 @@ Los cambios son un borrador hasta tocar **Guardar cambios**. Recargá la web pú
 
 El teléfono publicado es `11-73730703`. Antes de habilitar el botón, verificá con Guillermo o Agustín el número internacional correcto. Ingresalo en **Contenido y contacto → WhatsApp internacional**, solo dígitos, sin `+` ni espacios. No se asumió si corresponde `541173730703` o `5491173730703`. Vacío deshabilita WhatsApp; se permite copiar la consulta y llamar. El enlace abre WhatsApp sin enviar automáticamente el mensaje.
 
-## Dónde se guarda la información
+## Dónde se guarda la información en localhost
 
 El servidor crea una carpeta **`.storage`** en el proyecto:
 
@@ -52,9 +56,9 @@ No borres `.storage` al actualizar el código o extraer un ZIP nuevo. Con Git, `
 
 `data.js` contiene los datos iniciales, usados solo al crear el almacenamiento por primera vez. Una vez creado, editá el contenido desde `/admin`; modificar `data.js` no sobrescribe los datos guardados.
 
-## Publicación
+## Publicación alternativa con Node.js
 
-Esta versión funciona en un servidor Node con almacenamiento persistente. No alcanza con subir el HTML a un alojamiento estático. Para publicar:
+Además de la opción PHP/MySQL para Hostinger, la versión local funciona en un servidor Node con almacenamiento persistente. No alcanza con subir el HTML a un alojamiento estático. Para publicar:
 
 - Usar Node >=22, un dominio y HTTPS, ejecutar `npm ci` y luego `npm start`.
 - Montar un volumen persistente y configurar `ATELIER_DATA_DIR` con su ruta. Respaldar datos e imágenes. No usar discos efímeros.
@@ -71,7 +75,7 @@ Los modelos iniciales conservan las medidas del pedido; no se inventaron fotogra
 
 ## Fotos: formato, tamaño y encuadre
 
-Las imágenes nuevas se procesan automáticamente **en el servidor** mediante Sharp:
+Las imágenes nuevas se procesan automáticamente **en el servidor** mediante Sharp en localhost, o GD/Imagick en Hostinger:
 
 - Se aceptan JPG, PNG y WebP, hasta **20 MB y 60 megapíxeles**, sin animación. HEIC no está soportado: exportá a JPG antes de subirlo.
 - Se aplica la orientación de la cámara, se elimina la metadata original (incluida ubicación EXIF), se respeta la proporción y no se agranda el contenido de fotos pequeñas.

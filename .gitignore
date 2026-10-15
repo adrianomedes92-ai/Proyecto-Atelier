@@ -2,3 +2,6 @@ node_modules/
 .storage/
 .env
 *.log
+dist/
+hosting/private/config.php
+hosting/private/storage/

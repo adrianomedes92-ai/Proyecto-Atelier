@@ -6,12 +6,17 @@
     "dev": "node server.js --development-login",
     "start": "node server.js",
     "test": "node --test",
-    "admin:password": "node admin-password.js"
+    "admin:password": "node admin-password.js",
+    "build:hostinger": "node build-hostinger.js",
+    "test:php": "node tests/php/check.cjs"
   },
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
     "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "fflate": "^0.8.3"
   }
 }

@@ -36,6 +36,13 @@ async function api(path, options = {}) {
       ...options.headers,
     },
   });
+  if (!response.headers.get("content-type")?.includes("application/json")) {
+    throw Error(
+      response.status === 413
+        ? "El servidor rechazó el tamaño de la imagen. Revisá el límite de subida en la configuración PHP de Hostinger."
+        : "El servidor no devolvió una respuesta válida. Verificá que /api/ llegue al servidor correcto; en Hostinger, revisá .htaccess.",
+    );
+  }
   const data = await response.json();
   if (!response.ok) {
     if (response.status === 401 && path !== "/api/admin/login") {
@@ -598,7 +605,7 @@ function renderSite() {
 }
 function renderBackup() {
   $("#editor").innerHTML =
-    `<section class="editor-card"><h2>Tu información, a resguardo.</h2><p>Descargá el contenido en JSON para tener una copia de textos, productos y opciones.</p><button id="export" class="button">Descargar contenido</button><p class="hint">Este archivo incluye las rutas de las fotos, pero no sus archivos. Para un respaldo completo, copiá la carpeta .storage del proyecto; contiene datos, imágenes y la contraseña protegida. Guardala en un lugar privado.</p><h3>Restaurar contenido</h3><label class="import-field">Archivo JSON de respaldo<input type="file" id="import" accept="application/json,.json"></label><p class="hint">Reemplaza el borrador del panel. Revisá y guardá para aplicarlo. Las fotos deben existir en el mismo servidor.</p></section>`;
+    `<section class="editor-card"><h2>Tu información, a resguardo.</h2><p>Descargá el contenido en JSON para tener una copia de textos, productos y opciones.</p><button id="export" class="button">Descargar contenido</button><p class="hint">Este archivo incluye las rutas de las fotos, pero no sus archivos. En localhost, respaldá .storage. En Hostinger, respaldá la base MySQL y atelier-private/storage/uploads. Guardá las copias en un lugar privado.</p><h3>Restaurar contenido</h3><label class="import-field">Archivo JSON de respaldo<input type="file" id="import" accept="application/json,.json"></label><p class="hint">Reemplaza el borrador del panel. Revisá y guardá para aplicarlo. Las fotos deben existir en el mismo servidor.</p></section>`;
   $("#export").onclick = () => {
     const url = URL.createObjectURL(
       new Blob([JSON.stringify({ content }, null, 2)], {
@@ -638,6 +645,10 @@ function renderBackup() {
 try {
   const state = await api("/api/admin/session");
   $("#setup-help").hidden = state.configured;
+  if (!state.configured && state.setupUrl === "/setup.php") {
+    $("#setup-help").textContent =
+      "Completá la instalación de Hostinger en /setup.php para crear el acceso al panel.";
+  }
   $("#development-help").hidden = !state.developmentLogin;
   if (state.authenticated) await enter();
 } catch (e) {

@@ -1,0 +1,7 @@
+.git
+node_modules
+.storage
+dist
+.env
+hosting/private/config.php
+hosting/private/storage
