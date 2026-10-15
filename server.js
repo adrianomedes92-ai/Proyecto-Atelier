@@ -126,6 +126,7 @@ const publicFiles = new Set([
   "admin.css",
   "content-schema.js",
   "image-urls.js",
+  "product-gallery.js",
 ]);
 const server = http.createServer(async (req, res) => {
   res.setHeader("X-Content-Type-Options", "nosniff");

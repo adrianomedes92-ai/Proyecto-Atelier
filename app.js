@@ -1,4 +1,4 @@
-import { cardImage } from "./image-urls.js";
+import { setupProductGallery } from "./product-gallery.js";
 import {
   products,
   materials,
@@ -19,6 +19,11 @@ const esc = (s) =>
   );
 const drafts = {};
 let selected;
+const gallery = setupProductGallery({
+  container: $("#cards"),
+  dialog: $("#product-lightbox"),
+  getProduct: (id) => products.find((product) => product.id === id),
+});
 function cards(category = "Todos") {
   const list = products.filter(
     (p) => category === "Todos" || p.category === category,
@@ -27,7 +32,7 @@ function cards(category = "Todos") {
     ? list
         .map(
           (p, i) =>
-            `<article><button class="product-photo shade-${i % 3}" data-product="${p.id}" aria-label="Personalizar ${esc(p.name)}">${p.image ? `<img src="${esc(cardImage(p.image))}" alt="${esc(p.name)}" loading="lazy">` : `<span class="placeholder-mark">ATELIER</span><span class="placeholder-label">Fotografía pendiente</span>`}<span class="product-arrow">↗</span></button><div class="card-label"><div><h3>${esc(p.name)}</h3><p>${esc(p.reference || "Color y disponibilidad a consultar")}</p></div><button class="text-button" data-product="${p.id}">Personalizar</button></div></article>`,
+            `<article>${gallery.renderCard(p, i % 3)}<div class="card-label"><div><h3>${esc(p.name)}</h3><p>${esc(p.reference || "Color y disponibilidad a consultar")}</p></div><button class="text-button" data-product="${p.id}">Personalizar</button></div></article>`,
         )
         .join("")
     : "<p>No hay productos para mostrar por el momento. Consultanos para conocer las opciones.</p>";
@@ -193,7 +198,10 @@ $("#customizer").addEventListener("click", (e) => {
 });
 $("#cards").addEventListener("click", (e) => {
   const b = e.target.closest("[data-product]");
-  if (b) open(b.dataset.product);
+  if (b) {
+    e.stopPropagation();
+    open(b.dataset.product);
+  }
 });
 $("#filters").addEventListener("click", (e) => {
   const b = e.target.closest("[data-category]");

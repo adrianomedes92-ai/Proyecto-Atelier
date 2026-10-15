@@ -85,6 +85,54 @@
       </div>
       <div id="detail"></div>
     </dialog>
+    <dialog
+      id="product-lightbox"
+      class="lightbox"
+      aria-labelledby="lightbox-title"
+    >
+      <div class="lightbox-toolbar">
+        <h2 id="lightbox-title"></h2>
+        <button
+          type="button"
+          class="lightbox-close"
+          data-lightbox-close
+          aria-label="Cerrar imagen ampliada"
+          autofocus
+        >
+          Cerrar ✕
+        </button>
+      </div>
+      <div class="lightbox-stage" data-lightbox-stage>
+        <img
+          class="lightbox-image"
+          data-lightbox-image
+          alt=""
+          draggable="false"
+        />
+        <button
+          type="button"
+          class="gallery-nav gallery-previous"
+          data-lightbox-step="-1"
+          aria-label="Foto anterior"
+        >
+          ‹
+        </button>
+        <button
+          type="button"
+          class="gallery-nav gallery-next"
+          data-lightbox-step="1"
+          aria-label="Foto siguiente"
+        >
+          ›
+        </button>
+      </div>
+      <p
+        class="lightbox-position"
+        data-lightbox-position
+        aria-live="polite"
+        aria-atomic="true"
+      ></p>
+    </dialog>
     <script type="module" src="app.js"></script>
   </body>
 </html>
