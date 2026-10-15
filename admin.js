@@ -131,7 +131,11 @@ const field = (label, key, value, extra = "") =>
 const textarea = (label, key, value) =>
   `<label>${label}<textarea data-field="${key}">${esc(value)}</textarea></label>`;
 function photos(images, kind) {
-  return `<div class="image-list">${images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="Foto cargada ${i + 1}"><small>${i === 0 && kind === "product" ? "Portada" : ""}</small><button type="button" class="secondary" data-remove-image="${i}" data-kind="${kind}">Quitar foto</button>${i > 0 && kind === "product" ? `<button type="button" class="secondary" data-cover="${i}">Usar de portada</button>` : ""}</div>`).join("")}</div><label class="upload">${kind === "product" ? "Agregar fotografías" : "Cargar imagen de inicio"}<input type="file" data-upload="${kind}" accept="image/jpeg,image/png,image/webp" ${kind === "product" ? "multiple" : ""}></label><p class="hint">JPG, PNG o WebP, hasta 8 MB por imagen. Solo fotos reales de los productos. Se publican al guardar los cambios.</p>`;
+  const guide =
+    kind === "product"
+      ? "<strong>Productos: recomendado 1600 × 1280 px (horizontal, proporción 5:4).</strong> Centrá el mueble y dejá un margen de aproximadamente 10% alrededor. La tarjeta usa una miniatura de hasta 800 × 640 px; si la proporción es distinta, se agrega fondo neutro para mostrar el mueble completo."
+      : "<strong>Inicio: recomendado 1600 × 1800 px (vertical, proporción 8:9).</strong> Dejá aire alrededor del mueble. Mostramos la imagen completa, sin cortar bordes.";
+  return `<div class="image-guide">${guide}</div><div class="image-list">${images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="Foto cargada ${i + 1}"><small>${i === 0 && kind === "product" ? "Portada" : ""}</small><button type="button" class="secondary" data-remove-image="${i}" data-kind="${kind}">Quitar foto</button>${i > 0 && kind === "product" ? `<button type="button" class="secondary" data-cover="${i}">Usar de portada</button>` : ""}</div>`).join("")}</div><label class="upload">${kind === "product" ? "Agregar fotografías" : "Cargar imagen de inicio"}<input type="file" data-upload="${kind}" accept="image/jpeg,image/png,image/webp" ${kind === "product" ? "multiple" : ""}></label><p class="hint">JPG, PNG o WebP, hasta 20 MB y 60 megapíxeles. Convertimos automáticamente a WebP y reducimos el tamaño, sin deformar ni recortar la foto. Solo se publican al guardar los cambios.</p>`;
 }
 function render() {
   if (tab === "products") renderProducts();
@@ -244,19 +248,19 @@ function renderProducts() {
     );
   bindImages(p);
 }
-async function upload(file) {
-  if (file.size > 8 * 1024 * 1024) throw Error("La imagen supera los 8 MB.");
+async function upload(file, kind = "product") {
+  if (file.size > 20 * 1024 * 1024) throw Error("La imagen supera los 20 MB.");
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
     throw Error("Elegí una imagen JPG, PNG o WebP.");
   const bitmap = await createImageBitmap(file);
   bitmap.close();
-  return (
-    await api("/api/admin/upload", {
-      method: "POST",
-      body: file,
-      headers: { "Content-Type": file.type },
-    })
-  ).url;
+  status("Optimizando imagen…");
+  const result = await api("/api/admin/upload", {
+    method: "POST",
+    body: file,
+    headers: { "Content-Type": file.type, "X-Image-Kind": kind },
+  });
+  return result.url;
 }
 function lock(value) {
   busy = value;
@@ -305,14 +309,16 @@ function bindImages(p) {
             )
               throw Error("Máximo 12 fotos por producto.");
             for (const file of files) {
-              const url = await upload(file);
+              const url = await upload(file, input.dataset.upload);
               if (input.dataset.upload === "product") {
                 p.images.push(url);
                 p.image = p.images[0];
               } else content.site.heroImage = url;
               changed();
             }
-            status("Fotos cargadas. Guardá los cambios para publicarlas.");
+            status(
+              "Fotos optimizadas en WebP. Guardá los cambios para publicarlas.",
+            );
           } catch (e) {
             status(e.message, true);
           } finally {
@@ -327,7 +333,7 @@ function renderMaterials() {
   $("#editor").innerHTML =
     `<div class="editor-grid"><aside class="entity-list"><button id="new-material">＋ Agregar familia</button>${content.materials.map((m, i) => `<button data-family="${i}" aria-pressed="${i === materialIndex}">${esc(m.name)}<small>${esc(m.type)} · ${m.codes.length} colores</small></button>`).join("")}</aside><section class="editor-card">${
       m
-        ? `<div class="editor-toolbar"><h2>Telas y colores</h2><button id="delete-material" class="secondary danger">Eliminar familia</button></div><div class="field-grid">${field("Nombre de la familia", "name", m.name)}${field("Tipo (Tela, Ecocuero, etc.)", "type", m.type)}</div>${textarea("Descripción del material", "description", m.description || "")}<h3>Códigos y muestras</h3><p class="hint">Cargá códigos exactos y fotos reales de las muestras. Si un código no tiene foto, se mostrará su nombre sin inventar el color.</p><div id="swatch-list">${m.codes
+        ? `<div class="editor-toolbar"><h2>Telas y colores</h2><button id="delete-material" class="secondary danger">Eliminar familia</button></div><div class="field-grid">${field("Nombre de la familia", "name", m.name)}${field("Tipo (Tela, Ecocuero, etc.)", "type", m.type)}</div>${textarea("Descripción del material", "description", m.description || "")}<h3>Códigos y muestras</h3><p class="hint">Cargá códigos exactos y fotos reales de las muestras. Recomendado: 800 × 800 px, cuadrada (1:1), con luz neutra y sin filtros. Se optimiza a WebP de hasta 400 × 400 px. El color en pantalla es orientativo: confirmalo con la muestra física. Si un código no tiene foto, se muestra solo su nombre.</p><div id="swatch-list">${m.codes
             .map((code, i) => {
               const photo = m.swatches.find((s) => s.code === code)?.image;
               return `<div class="swatch-row">${field("Código", "code-" + i, code)}<div>${photo ? `<img src="${esc(photo)}" alt="Muestra ${esc(code)}"><button class="text-button" data-remove-swatch="${i}">Quitar foto</button>` : ""}<label>Foto de muestra<input type="file" data-swatch="${i}" accept="image/jpeg,image/png,image/webp"></label></div><button class="secondary danger" data-delete-code="${i}">Quitar código</button></div>`;
@@ -446,11 +452,11 @@ function renderMaterials() {
           }
           lock(true);
           try {
-            const url = await upload(input.files[0]);
+            const url = await upload(input.files[0], "swatch");
             m.swatches = m.swatches.filter((s) => s.code !== code);
             m.swatches.push({ code, image: url });
             changed();
-            status("Muestra cargada. Guardá los cambios.");
+            status("Muestra optimizada en WebP. Guardá los cambios.");
           } catch (e) {
             status(e.message, true);
           } finally {

@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -92,17 +93,26 @@ test("admin autenticado, fotos, validación, conflicto y persistencia", async ()
     ).json();
     saved.content.products[0].name = "Modelo actualizado";
     saved.content.products[1].visible = false;
-    const png = Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a4pUAAAAASUVORK5CYII=",
-      "base64",
-    );
+    const png = await sharp({
+      create: { width: 100, height: 80, channels: 3, background: "#aabbcc" },
+    })
+      .png()
+      .toBuffer();
     const upload = await fetch(base + "/api/admin/upload", {
       method: "POST",
       headers: { Origin: base, Cookie: cookie },
       body: png,
     });
     assert.equal(upload.status, 201);
-    const { url } = await upload.json();
+    const { url, thumbnailUrl } = await upload.json();
+    assert.match(url, /-optimized\.webp$/);
+    assert.equal((await fetch(base + thumbnailUrl)).status, 200);
+    const photo = await fetch(base + url);
+    assert.equal(photo.headers.get("content-type"), "image/webp");
+    assert.equal(
+      (await sharp(Buffer.from(await photo.arrayBuffer())).metadata()).format,
+      "webp",
+    );
     saved.content.products[0].image = url;
     saved.content.products[0].images = [url];
     saved.content.materials[0].codes = ["001"];

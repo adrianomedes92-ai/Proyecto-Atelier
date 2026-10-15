@@ -1,3 +1,4 @@
+import { optimizeImage } from "./image-processing.js";
 import http from "node:http";
 import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import { resolve, extname, join } from "node:path";
@@ -124,6 +125,7 @@ const publicFiles = new Set([
   "admin.js",
   "admin.css",
   "content-schema.js",
+  "image-urls.js",
 ]);
 const server = http.createServer(async (req, res) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -222,35 +224,30 @@ const server = http.createServer(async (req, res) => {
         }
       }
       if (pathname === "/api/admin/upload" && req.method === "POST") {
-        const bytes = await body(req, 8 * 1024 * 1024);
-        let extension;
-        if (
-          bytes.length > 12 &&
-          bytes
-            .subarray(0, 8)
-            .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
-        )
-          extension = "png";
-        else if (
-          bytes.length > 12 &&
-          bytes[0] === 255 &&
-          bytes[1] === 216 &&
-          bytes[2] === 255
-        )
-          extension = "jpg";
-        else if (
-          bytes.length > 12 &&
-          bytes.toString("ascii", 0, 4) === "RIFF" &&
-          bytes.toString("ascii", 8, 12) === "WEBP"
-        )
-          extension = "webp";
-        if (!extension)
-          return json(res, 400, {
-            error: "Usá una imagen JPG, PNG o WebP válida, de hasta 8 MB.",
+        const bytes = await body(req, 20 * 1024 * 1024);
+        const kind = req.headers["x-image-kind"] || "product";
+        const result = await optimizeImage(bytes, kind);
+        const id = randomUUID();
+        const name = id + (kind === "product" ? "-optimized.webp" : ".webp");
+        await writeFile(join(store, "uploads", name), result.data, {
+          flag: "wx",
+        });
+        let thumbnailUrl;
+        if (result.card) {
+          const thumbnailName = id + "-card.webp";
+          await writeFile(join(store, "uploads", thumbnailName), result.card, {
+            flag: "wx",
           });
-        const name = randomUUID() + "." + extension;
-        await writeFile(join(store, "uploads", name), bytes, { flag: "wx" });
-        return json(res, 201, { url: "/uploads/" + name });
+          thumbnailUrl = "/uploads/" + thumbnailName;
+        }
+        return json(res, 201, {
+          url: "/uploads/" + name,
+          thumbnailUrl,
+          width: result.width,
+          height: result.height,
+          originalBytes: result.originalBytes,
+          optimizedBytes: result.optimizedBytes,
+        });
       }
       return json(res, 404, { error: "No encontrado." });
     }
@@ -259,7 +256,11 @@ const server = http.createServer(async (req, res) => {
       return res.end();
     }
     let file;
-    if (/^\/uploads\/[a-f0-9-]+\.(jpg|png|webp)$/.test(pathname))
+    if (
+      /^\/uploads\/[a-f0-9-]+(?:-(?:optimized|card))?\.(jpg|png|webp)$/.test(
+        pathname,
+      )
+    )
       file = join(store, pathname.slice(1));
     else if (/^\/images\/[a-zA-Z0-9_/-]+\.(jpg|jpeg|png|webp)$/.test(pathname))
       file = join(root, pathname);
@@ -289,7 +290,12 @@ const server = http.createServer(async (req, res) => {
         ".webp": "image/webp",
       }[extname(file)],
     );
-    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader(
+      "Cache-Control",
+      pathname.startsWith("/uploads/")
+        ? "public, max-age=31536000, immutable"
+        : "no-cache",
+    );
     res.end(req.method === "HEAD" ? undefined : data);
   } catch (e) {
     if (e.code === "ENOENT") {

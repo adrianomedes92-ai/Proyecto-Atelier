@@ -1,6 +1,6 @@
 # Proyecto Atelier
 
-Web en español rioplatense para explorar y personalizar muebles y consultar por WhatsApp, sin precios ni pagos. Panel de administración con contenido persistente. Node.js 22 o superior; sin dependencias externas.
+Web en español rioplatense para explorar y personalizar muebles y consultar por WhatsApp, sin precios ni pagos. Panel de administración con contenido persistente. Node.js 22 o superior. Usa Sharp para optimizar las imágenes.
 
 ## Correr en Visual Studio Code (Windows, macOS o Linux)
 
@@ -8,7 +8,7 @@ Web en español rioplatense para explorar y personalizar muebles y consultar por
 2. Abrí **Terminal → Nueva terminal** y ejecutá `npm run dev`.
 3. Visitá **http://localhost:3000**. Para detener el servidor, usá `Ctrl+C`.
 
-No hace falta `npm install`. No usar Live Server ni abrir el HTML como archivo: el panel y el catálogo necesitan el servidor Node.
+La primera vez, y después de actualizar dependencias, ejecutá **`npm ci`** antes de `npm run dev`. No usar Live Server ni abrir el HTML como archivo: el panel y el catálogo necesitan el servidor Node.
 
 ## Entrar al panel durante el desarrollo
 
@@ -27,7 +27,7 @@ Para recuperarla, repetí estos pasos. Se guarda como hash con salt, nunca como 
 
 ## Administrar sin tocar código
 
-- **Productos:** agregar/eliminar modelos, editar nombres, categorías, descripciones, estructura, medidas de referencia, rangos y patas confirmadas. Elegir qué opciones de personalización muestra cada modelo y qué telas admite. Ocultar modelos incompletos. Cargar hasta 12 fotos JPG, PNG o WebP (máximo 8 MB cada una), quitar fotos o elegir portada. La primera foto aparece en el catálogo y todas aparecen en la ficha.
+- **Productos:** agregar/eliminar modelos, editar nombres, categorías, descripciones, estructura, medidas de referencia, rangos y patas confirmadas. Elegir qué opciones de personalización muestra cada modelo y qué telas admite. Ocultar modelos incompletos. Cargar hasta 12 fotos JPG, PNG o WebP (máximo 20 MB y 60 megapíxeles cada una), quitar fotos o elegir portada. La primera foto aparece en el catálogo y todas aparecen en la ficha.
 - **Telas y colores:** agregar familias de material, tipo y descripción; cargar los códigos reales y una foto de cada muestra. Los códigos sin foto se muestran como texto, sin inventar colores. Podés restringir las familias por modelo desde Productos.
 - **Contenido y contacto:** editar marca, títulos, textos de inicio/catálogo/contacto, los tres pasos, envíos, imagen de inicio, teléfono, personas de contacto y WhatsApp.
 - **Respaldo:** exportar/restaurar un JSON de contenido. Este JSON contiene las rutas de fotos, pero no sus archivos.
@@ -56,7 +56,7 @@ No borres `.storage` al actualizar el código o extraer un ZIP nuevo. Con Git, `
 
 Esta versión funciona en un servidor Node con almacenamiento persistente. No alcanza con subir el HTML a un alojamiento estático. Para publicar:
 
-- Usar Node >=22, un dominio y HTTPS, con `npm start`.
+- Usar Node >=22, un dominio y HTTPS, ejecutar `npm ci` y luego `npm start`.
 - Montar un volumen persistente y configurar `ATELIER_DATA_DIR` con su ruta. Respaldar datos e imágenes. No usar discos efímeros.
 - Configurar `ADMIN_PASSWORD` de al menos 12 caracteres mediante las variables seguras del alojamiento; no escribirla en Git. Si se usa, prevalece sobre la contraseña creada por terminal.
 - Configurar `HOST=0.0.0.0` y `PORT` según el proveedor. Localmente solo escucha en `127.0.0.1`.
@@ -68,3 +68,21 @@ Esta versión funciona en un servidor Node con almacenamiento persistente. No al
 `npm test` ejecuta pruebas de cotización y una prueba de API con autenticación, fotos, validación, conflictos y reinicio. También se probó en navegador el panel, las subidas, muestras, la web móvil y el mensaje de WhatsApp.
 
 Los modelos iniciales conservan las medidas del pedido; no se inventaron fotografías, colores ni patas. El PDF adjunto superó el límite de transferencia de 32 MiB. Cargá las fotos reales y los códigos confirmados desde el panel y revisá la aplicabilidad de las familias por modelo antes de publicar. Las imágenes subidas durante las pruebas fueron temporales y no forman parte del catálogo real.
+
+## Fotos: formato, tamaño y encuadre
+
+Las imágenes nuevas se procesan automáticamente **en el servidor** mediante Sharp:
+
+- Se aceptan JPG, PNG y WebP, hasta **20 MB y 60 megapíxeles**, sin animación. HEIC no está soportado: exportá a JPG antes de subirlo.
+- Se aplica la orientación de la cámara, se elimina la metadata original (incluida ubicación EXIF), se respeta la proporción y no se agranda el contenido de fotos pequeñas.
+- Se convierten a **WebP**. Las fotos de productos conservan detalle hasta 1600 × 1600 px (caja máxima, sin recortar), y generan una miniatura de **800 × 640 px** para las tarjetas con fondo neutro para completar el encuadre.
+- Inicio: caja máxima de 1920 × 2160 px. Muestras: caja máxima de 400 × 400 px, con calidad mayor para preservar textura. La conversión con compresión puede variar ligeramente el color; la muestra física es la referencia.
+- El original subido no se conserva: guardá tus originales aparte. Algunas imágenes muy pequeñas ya comprimidas pueden no reducir su peso; la optimización prioriza dimensiones apropiadas y formatos consistentes.
+
+**Guía de preparación visible en el admin:**
+
+- **Productos:** 1600 × 1280 px, horizontal **5:4**, mueble centrado, alrededor de un **10% de margen libre**. Mostrá el producto entero; evitá textos incrustados en la foto.
+- **Inicio:** 1600 × 1800 px, vertical **8:9**, con aire alrededor del mueble.
+- **Telas:** 800 × 800 px, cuadrada **1:1**, luz neutra y sin filtros. Mostrá una superficie representativa de la textura.
+
+Las proporciones son recomendaciones: el sistema acepta otras dimensiones y muestra la foto completa sin deformar ni recortar. Las fotos ya cargadas siguen funcionando, pero **no se reconvierten solas**: volvé a cargarlas si querés optimizarlas. Respaldá `.storage` antes de hacerlo.

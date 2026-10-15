@@ -234,3 +234,14 @@
     flex-wrap: wrap;
   }
 }
+.image-guide {
+  padding: 16px;
+  background: #eef0e7;
+  border-left: 3px solid var(--accent);
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 16px 0;
+}
+.image-guide strong {
+  display: block;
+}

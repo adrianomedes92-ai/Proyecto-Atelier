@@ -1,3 +1,4 @@
+import { cardImage } from "./image-urls.js";
 import {
   products,
   materials,
@@ -26,7 +27,7 @@ function cards(category = "Todos") {
     ? list
         .map(
           (p, i) =>
-            `<article><button class="product-photo shade-${i % 3}" data-product="${p.id}" aria-label="Personalizar ${esc(p.name)}">${p.image ? `<img src="${esc(p.image)}" alt="${esc(p.name)}" loading="lazy">` : `<span class="placeholder-mark">ATELIER</span><span class="placeholder-label">Fotografía pendiente</span>`}<span class="product-arrow">↗</span></button><div class="card-label"><div><h3>${esc(p.name)}</h3><p>${esc(p.reference || "Color y disponibilidad a consultar")}</p></div><button class="text-button" data-product="${p.id}">Personalizar</button></div></article>`,
+            `<article><button class="product-photo shade-${i % 3}" data-product="${p.id}" aria-label="Personalizar ${esc(p.name)}">${p.image ? `<img src="${esc(cardImage(p.image))}" alt="${esc(p.name)}" loading="lazy">` : `<span class="placeholder-mark">ATELIER</span><span class="placeholder-label">Fotografía pendiente</span>`}<span class="product-arrow">↗</span></button><div class="card-label"><div><h3>${esc(p.name)}</h3><p>${esc(p.reference || "Color y disponibilidad a consultar")}</p></div><button class="text-button" data-product="${p.id}">Personalizar</button></div></article>`,
         )
         .join("")
     : "<p>No hay productos para mostrar por el momento. Consultanos para conocer las opciones.</p>";

@@ -585,3 +585,12 @@ textarea {
 .swatch[aria-pressed="true"] {
   outline: 2px solid var(--accent);
 }
+.product-photo img,
+.product-gallery img,
+.hero-art > img,
+.swatch img {
+  object-fit: contain;
+}
+.hero-art {
+  background: #e8e7de;
+}

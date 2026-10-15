@@ -19,7 +19,9 @@ const image = (v) => {
   if (!v) return "";
   const s = text(v, "Imagen", 250);
   if (
-    !/^\/uploads\/[a-f0-9-]+\.(png|jpg|webp)$/.test(s) &&
+    !/^\/uploads\/[a-f0-9-]+(?:-(?:optimized|card))?\.(png|jpg|webp)$/.test(
+      s,
+    ) &&
     !/^\/images\/[a-zA-Z0-9_/-]+\.(png|jpg|jpeg|webp)$/.test(s)
   )
     fail("La imagen debe cargarse desde el panel o estar en /images/.");
