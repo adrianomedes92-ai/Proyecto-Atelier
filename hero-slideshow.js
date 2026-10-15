@@ -10,12 +10,22 @@ export function setupHeroSlideshow(container, site) {
   const slides = document.createElement("div");
   slides.className = "hero-slides";
   slides.setAttribute("aria-hidden", "true");
+  const frames = [],
+    backdrops = [];
   const images = urls.map(() => {
+    const frame = document.createElement("div");
+    frame.className = "hero-slide";
+    const backdrop = new Image();
+    backdrop.className = "hero-slide-backdrop";
+    backdrop.alt = "";
     const img = new Image();
-    img.className = "hero-slide";
+    img.className = "hero-slide-image";
     img.alt = "";
     img.decoding = "async";
-    slides.append(img);
+    frame.append(backdrop, img);
+    slides.append(frame);
+    frames.push(frame);
+    backdrops.push(backdrop);
     return img;
   });
   region.append(slides);
@@ -82,6 +92,8 @@ export function setupHeroSlideshow(container, site) {
           images[index].src = urls[index];
           try {
             await images[index].decode();
+            backdrops[index].src = urls[index];
+            await backdrops[index].decode();
             return true;
           } catch {
             return false;
@@ -100,9 +112,9 @@ export function setupHeroSlideshow(container, site) {
       const loaded = await load(index);
       if (destroyed || request !== generation) return;
       if (!loaded) continue;
-      if (active >= 0) images[active].classList.remove("is-active");
+      if (active >= 0) frames[active].classList.remove("is-active");
       active = index;
-      images[active].classList.add("is-active");
+      frames[active].classList.add("is-active");
       container.classList.add("hero-ready");
       updateControls();
       schedule();

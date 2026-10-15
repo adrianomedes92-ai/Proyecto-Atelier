@@ -1,3 +1,4 @@
+import { applyBrand } from "./brand.js";
 import { setupHeroSlideshow } from "./hero-slideshow.js";
 import { setupProductGallery } from "./product-gallery.js";
 import {
@@ -62,9 +63,7 @@ function renderSite() {
   const phone = $(".contact>a");
   phone.textContent = contact.display;
   phone.href = "tel:" + contact.display.replace(/[^\d+]/g, "");
-  document
-    .querySelectorAll(".brand")
-    .forEach((n) => (n.textContent = site.name));
+  applyBrand(site);
   $("footer span").textContent = site.name;
   $("footer span:nth-child(2)").textContent = site.footer;
   $('meta[name="description"]').content = site.heroDescription;

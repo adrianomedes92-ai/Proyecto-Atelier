@@ -82,7 +82,7 @@ Las imágenes nuevas se procesan automáticamente **en el servidor** mediante Sh
 **Guía de preparación visible en el admin:**
 
 - **Productos:** 1600 × 1280 px, horizontal **5:4**, mueble centrado, alrededor de un **10% de margen libre**. Mostrá el producto entero; evitá textos incrustados en la foto.
-- **Inicio:** 1600 × 1800 px, vertical **8:9**, con aire alrededor del mueble.
+- **Inicio:** 1920 × 1080 px, horizontal **16:9**, con el producto hacia la derecha y aproximadamente el 40% izquierdo libre para texto. Conservá margen alrededor del mueble y verificá la composición en celular.
 - **Telas:** 800 × 800 px, cuadrada **1:1**, luz neutra y sin filtros. Mostrá una superficie representativa de la textura.
 
 Las proporciones son recomendaciones: el sistema acepta otras dimensiones y muestra la foto completa sin deformar ni recortar. Las fotos ya cargadas siguen funcionando, pero **no se reconvierten solas**: volvé a cargarlas si querés optimizarlas. Respaldá `.storage` antes de hacerlo.
@@ -100,8 +100,16 @@ En **Contenido y contacto → Imágenes de portada**, podés cargar hasta 12 fot
 - Sin fotos: se conserva la composición gráfica original.
 - Una foto: imagen fija, sin controles de presentación.
 - Varias fotos: alternan cada **5 segundos** con un **fundido de 1 segundo**, contador, anterior/siguiente y pausa/reproducción. La siguiente foto se precarga y solo se muestra después de decodificarse, evitando cuadros vacíos.
-- El texto y el botón conservan su panel claro separado para que todas las fotos permitan leerlos. Se respeta la proporción y se muestra la imagen completa en computadora y celular.
+- La portada ocupa el ancho completo. El texto y el botón se superponen a la izquierda con un degradado claro; en celular quedan arriba para reservar espacio al producto. Se muestra la foto completa, sin deformar, sobre una copia desenfocada que completa el fondo. Ambas capas mantienen el fundido del carrusel.
 - La rotación se pausa mientras el puntero o el foco están dentro de la presentación, cuando se navega manualmente y cuando la pestaña está oculta. Las teclas izquierda/derecha también permiten navegar al enfocar los controles.
 - Con **reducir movimiento** activado, no hay reproducción automática ni fundido; se puede avanzar manualmente.
 
 Los datos se guardan en `.storage/content.json` y los archivos en `.storage/uploads/`, como el resto del catálogo. La portada única de versiones anteriores se conserva automáticamente como primera imagen; no hace falta volver a subirla. Los respaldos exportados incluyen la lista y su orden; para conservar las fotos, respaldá toda `.storage`.
+
+## Encabezado y tamaño de marca
+
+En **Contenido y contacto**, el control **Tamaño del nombre de la marca** permite elegir entre **16 y 36 px**, con **22 px** como valor predeterminado (también al actualizar datos anteriores). La vista previa se refleja en el encabezado del admin; tocá **Guardar cambios** para aplicarla a la web. Se conserva la tipografía actual, sin selector de fuentes.
+
+En celular el tamaño se reduce automáticamente a un rango de 16–26 px. Los nombres largos, incluso sin espacios, se ajustan en varias líneas; el encabezado crece para mostrarlos completos sin invadir la navegación. El tamaño queda guardado en `site.brandFontSize` dentro de `.storage/content.json`.
+
+La portada sigue admitiendo las imágenes ya cargadas. Para una composición óptima de borde a borde, usá fotos horizontales con espacio vacío a la izquierda. El carrusel conserva los controles, los tiempos, la pausa y la preferencia de reducir movimiento. No hace falta volver a cargar las fotos para actualizar el diseño.

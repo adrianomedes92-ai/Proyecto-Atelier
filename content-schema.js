@@ -47,6 +47,13 @@ export function validateContent(value) {
     "contactEyebrow",
   ])
     site[key] = text(value.site?.[key], key);
+  site.brandFontSize = value.site.brandFontSize ?? 22;
+  if (
+    !Number.isInteger(site.brandFontSize) ||
+    site.brandFontSize < 16 ||
+    site.brandFontSize > 36
+  )
+    fail("El tamaño de la marca debe ser un número entero entre 16 y 36 px.");
   const legacyHeroImage = image(value.site.heroImage);
   // La imagen única de versiones anteriores se conserva al actualizar.
   site.heroImages =

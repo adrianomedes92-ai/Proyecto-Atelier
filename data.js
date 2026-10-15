@@ -81,6 +81,7 @@ export let products = [
 
 export let site = {
   name: "Proyecto Atelier",
+  brandFontSize: 22,
   heroTitle: "Tu espacio.\nTu forma de\nhabitarlo.",
   heroDescription:
     "Sillones hechos para acompañar tu vida. Elegí un modelo, contanos cómo lo imaginás y lo hacemos juntos.",

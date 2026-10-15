@@ -52,19 +52,23 @@ textarea:focus-visible {
   outline-offset: 4px;
 }
 header {
-  height: 104px;
+  min-height: 104px;
+  padding: 22px 0;
   margin: 0 6%;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 28px;
   align-items: center;
-  justify-content: space-between;
   border-bottom: 1px solid var(--line);
 }
 .brand {
-  font-size: 12px;
-  letter-spacing: 3px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  font-size: var(--brand-size, 22px);
+  letter-spacing: 2px;
+  line-height: 1.2;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  display: block;
 }
 .brand strong {
   font-size: 27px;
@@ -77,14 +81,42 @@ nav {
   font-size: 13px;
 }
 .hero {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  min-height: 620px;
-  margin: 42px 6% 52px;
-  gap: 5%;
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  min-height: clamp(620px, 52vw, 800px);
+  margin: 0 0 52px;
+  background: #e8e7de;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    #f8f6f1fa 0%,
+    #f8f6f1f5 46%,
+    #f8f6f170 62%,
+    #f8f6f100 80%
+  );
 }
 .hero-copy {
-  padding: 35px 0;
+  position: relative;
+  z-index: 2;
+  width: 46%;
+  pointer-events: none;
+  padding: clamp(42px, 5vw, 80px) 0 90px 6%;
+  overflow-wrap: anywhere;
+}
+.hero-copy h1 {
+  font-size: clamp(48px, 5.2vw, 78px);
+}
+.hero .hero-copy p,
+.hero .hero-copy small,
+.hero .hero-copy .eyebrow {
+  color: #4d5847;
 }
 .eyebrow {
   font-size: 10px;
@@ -132,13 +164,15 @@ h1 em {
   color: var(--muted);
 }
 .hero-art {
-  position: relative;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   overflow: hidden;
   background: #d9d8c9;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 520px;
+  min-height: 0;
 }
 .hero-art:before {
   content: "";
@@ -433,7 +467,9 @@ textarea {
 }
 @media (max-width: 750px) {
   header {
-    height: 88px;
+    min-height: 88px;
+    padding: 18px 0;
+    column-gap: 16px;
     margin: 0 5%;
   }
   nav {
@@ -447,21 +483,48 @@ textarea {
     font-size: 21px;
   }
   .brand {
-    font-size: 9px;
+    font-size: clamp(16px, calc(var(--brand-size, 22px) * 0.78), 26px);
+    letter-spacing: 1px;
   }
   .hero {
-    grid-template-columns: 1fr;
-    margin: 24px 5% 36px;
-    gap: 20px;
+    --hero-photo-height: clamp(300px, 90vw, 440px);
+    min-height: 740px;
+    margin: 0 0 36px;
+  }
+  .hero::after {
+    background: linear-gradient(
+      to bottom,
+      #f8f6f1fa 0%,
+      #f8f6f1f5 calc(100% - var(--hero-photo-height)),
+      #f8f6f180 calc(100% - var(--hero-photo-height) + 60px),
+      #f8f6f100 calc(100% - var(--hero-photo-height) + 150px)
+    );
   }
   .hero-copy {
-    padding: 15px 0;
+    width: 100%;
+    padding: 32px 5% calc(var(--hero-photo-height) + 20px);
+  }
+  .hero-copy h1 {
+    font-size: clamp(38px, 9vw, 56px);
+    letter-spacing: -2px;
+    margin: 18px 0;
+  }
+  .hero-copy p {
+    font-size: 14px;
+    line-height: 1.65;
+    max-width: 440px;
+  }
+  .hero .button {
+    margin: 12px 0 18px;
+  }
+  .hero small {
+    font-size: 11px;
   }
   h1 {
     font-size: 62px;
   }
   .hero-art {
-    min-height: 320px;
+    min-height: 0;
   }
   .art-monogram {
     font-size: 220px;
@@ -765,10 +828,28 @@ dialog.lightbox {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  overflow: hidden;
   opacity: 0;
   transition: opacity 1s ease-in-out;
   pointer-events: none;
+}
+.hero-slide-image,
+.hero-slide-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.hero-slide-image {
+  z-index: 1;
+  object-fit: contain;
+  object-position: right center;
+  padding-left: 22%;
+}
+.hero-slide-backdrop {
+  object-fit: cover;
+  filter: blur(20px);
+  transform: scale(1.05);
 }
 .hero-slide.is-active {
   opacity: 1;
@@ -776,7 +857,7 @@ dialog.lightbox {
 .hero-slide-controls {
   position: absolute;
   bottom: 14px;
-  left: 50%;
+  left: 72%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
@@ -814,4 +895,51 @@ dialog.lightbox {
   .hero-slide {
     transition: none;
   }
+}
+
+.hero-art > .art-monogram {
+  margin-left: 45%;
+}
+.hero-art > .art-caption,
+.hero-art > .photo-note {
+  left: 62%;
+}
+@media (min-width: 751px) and (max-width: 1050px) {
+  .hero-copy {
+    width: 49%;
+    padding-left: 5%;
+  }
+  .hero-copy h1 {
+    font-size: 48px;
+    letter-spacing: -2px;
+  }
+  .hero::after {
+    background: linear-gradient(90deg, #f8f6f1fa, #f8f6f1f5 49%, #f8f6f100 85%);
+  }
+}
+@media (max-width: 750px) {
+  .hero-slide-image {
+    padding-left: 0;
+    object-position: center bottom;
+  }
+  .hero-slide-controls {
+    left: 50%;
+  }
+  .hero-art > .art-monogram {
+    margin-left: 0;
+    align-self: end;
+    margin-bottom: 60px;
+  }
+  .hero-art > .art-caption {
+    left: 5%;
+    bottom: 30px;
+  }
+  .hero-art > .photo-note {
+    left: 5%;
+    bottom: 12px;
+  }
+}
+
+.hero-copy > * {
+  pointer-events: auto;
 }

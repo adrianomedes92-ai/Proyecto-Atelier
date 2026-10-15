@@ -1,3 +1,4 @@
+import { applyBrand } from "./brand.js";
 import { validateContent } from "./content-schema.js";
 const $ = (s) => document.querySelector(s);
 const esc = (s) =>
@@ -51,6 +52,7 @@ function showLogin() {
 async function enter() {
   const data = await api("/api/admin/content");
   content = data.content;
+  applyBrand(content.site);
   revision = data.revision;
   productId = content.products[0]?.id;
   dirty = false;
@@ -481,7 +483,7 @@ function renderMaterials() {
 
 function heroPhotos() {
   const images = content.site.heroImages;
-  return `<div class="image-guide"><strong>Portada: recomendado 1600 × 1800 px, vertical (8:9).</strong> Dejá aire alrededor del mueble. La foto se adapta sin deformarse ni recortarse; los textos y botones mantienen su panel de fondo claro. Con una imagen se muestra fija; con varias, se alternan cada 5 segundos con fundido de 1 segundo.</div>
+  return `<div class="image-guide"><strong>Portada: recomendado 1920 × 1080 px, horizontal (16:9).</strong> Ubicá el producto hacia la derecha y dejá libre aproximadamente el 40% izquierdo para los textos superpuestos. En celular, el texto queda arriba y la foto se encuadra hacia abajo. La foto conserva su proporción completa: dejá margen alrededor del mueble, evitá textos incrustados y comprobá el resultado en ambos tamaños. Con una imagen se muestra fija; con varias, se alternan cada 5 segundos con fundido de 1 segundo.</div>
     <p class="hint">Hasta 12 imágenes JPG, PNG o WebP, de hasta 20 MB y 60 megapíxeles cada una, sin animación. Se optimizan a WebP. El orden de las miniaturas es el orden de presentación. Los cambios se publican al guardar.</p>
     <div class="image-list hero-admin-images">${images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="Vista previa de portada ${i + 1}"><strong>Imagen ${i + 1}</strong><div class="hero-order"><button type="button" class="secondary" data-hero-move="${i}" data-direction="-1" aria-label="Mover imagen ${i + 1} antes" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="secondary" data-hero-move="${i}" data-direction="1" aria-label="Mover imagen ${i + 1} después" ${i === images.length - 1 ? "disabled" : ""}>↓</button></div><label class="hero-replace">Reemplazar<input type="file" data-hero-replace="${i}" accept="image/jpeg,image/png,image/webp"></label><button type="button" class="secondary danger" data-hero-remove="${i}">Eliminar imagen ${i + 1}</button></div>`).join("")}</div>
     ${images.length ? "" : '<p class="hint">Sin imágenes: la web conserva la portada gráfica original.</p>'}
@@ -567,7 +569,7 @@ function bindHeroImages() {
 function renderSite() {
   const s = content.site;
   $("#editor").innerHTML =
-    `<section class="editor-card"><h2>Contenido de la web</h2><div class="field-grid">${field("Nombre de la marca", "name", s.name)}${field("Presentación breve", "tagline", s.tagline)}<div class="full">${textarea("Título de inicio (una línea por renglón)", "heroTitle", s.heroTitle)}${textarea("Descripción de inicio", "heroDescription", s.heroDescription)}${field("Fabricación y envíos", "shipping", s.shipping)}</div>${field("Título del catálogo", "collectionTitle", s.collectionTitle)}${field("Descripción del catálogo", "collectionDescription", s.collectionDescription)}${textarea("Título de contacto", "contactTitle", s.contactTitle)}${textarea("Descripción de contacto", "contactDescription", s.contactDescription)}${field("Texto del pie de página", "footer", s.footer)}${field("Botón de inicio", "heroButton", s.heroButton)}${field("Etiqueta del catálogo", "collectionEyebrow", s.collectionEyebrow)}${field("Etiqueta de contacto", "contactEyebrow", s.contactEyebrow)}</div><h3>Cómo funciona</h3>${s.steps.map((step, i) => `<div class="field-grid">${field("Título del paso " + (i + 1), "step-title-" + i, step.title)}${field("Descripción del paso " + (i + 1), "step-description-" + i, step.description)}</div>`).join("")}<h3>Imágenes de portada</h3>${heroPhotos()}<h2>Contacto</h2><div class="field-grid">${field("Teléfono visible", "display", content.contact.display)}${field("WhatsApp internacional (solo dígitos)", "whatsappInternational", content.contact.whatsappInternational, 'inputmode="numeric"')}${textarea("Personas de contacto (una por línea)", "people", content.contact.people.join("\n"))}</div><p class="hint">Confirmá el prefijo internacional con la fábrica. Ejemplo de formato: código de país + número, sin +, espacios ni guiones. Dejalo vacío para deshabilitar WhatsApp.</p></section>`;
+    `<section class="editor-card"><h2>Contenido de la web</h2><div class="field-grid">${field("Nombre de la marca", "name", s.name)}<label>Tamaño del nombre de la marca: <output id="brand-size-value">${s.brandFontSize} px</output><input type="range" data-field="brandFontSize" min="16" max="36" step="1" value="${s.brandFontSize}"><span class="hint">Entre 16 y 36 px en escritorio. Se adapta a celular sin cambiar la tipografía. Vista previa en el encabezado.</span></label>${field("Presentación breve", "tagline", s.tagline)}<div class="full">${textarea("Título de inicio (una línea por renglón)", "heroTitle", s.heroTitle)}${textarea("Descripción de inicio", "heroDescription", s.heroDescription)}${field("Fabricación y envíos", "shipping", s.shipping)}</div>${field("Título del catálogo", "collectionTitle", s.collectionTitle)}${field("Descripción del catálogo", "collectionDescription", s.collectionDescription)}${textarea("Título de contacto", "contactTitle", s.contactTitle)}${textarea("Descripción de contacto", "contactDescription", s.contactDescription)}${field("Texto del pie de página", "footer", s.footer)}${field("Botón de inicio", "heroButton", s.heroButton)}${field("Etiqueta del catálogo", "collectionEyebrow", s.collectionEyebrow)}${field("Etiqueta de contacto", "contactEyebrow", s.contactEyebrow)}</div><h3>Cómo funciona</h3>${s.steps.map((step, i) => `<div class="field-grid">${field("Título del paso " + (i + 1), "step-title-" + i, step.title)}${field("Descripción del paso " + (i + 1), "step-description-" + i, step.description)}</div>`).join("")}<h3>Imágenes de portada</h3>${heroPhotos()}<h2>Contacto</h2><div class="field-grid">${field("Teléfono visible", "display", content.contact.display)}${field("WhatsApp internacional (solo dígitos)", "whatsappInternational", content.contact.whatsappInternational, 'inputmode="numeric"')}${textarea("Personas de contacto (una por línea)", "people", content.contact.people.join("\n"))}</div><p class="hint">Confirmá el prefijo internacional con la fábrica. Ejemplo de formato: código de país + número, sin +, espacios ni guiones. Dejalo vacío para deshabilitar WhatsApp.</p></section>`;
   $("#editor")
     .querySelectorAll("[data-field]")
     .forEach(
@@ -584,7 +586,11 @@ function renderSite() {
               .filter(Boolean);
           else if (["display", "whatsappInternational"].includes(key))
             content.contact[key] = input.value;
-          else s[key] = input.value;
+          else if (key === "brandFontSize") {
+            s.brandFontSize = Number(input.value);
+            $("#brand-size-value").textContent = `${s.brandFontSize} px`;
+          } else s[key] = input.value;
+          if (key === "name" || key === "brandFontSize") applyBrand(s);
           changed();
         }),
     );

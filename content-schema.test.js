@@ -39,3 +39,19 @@ test("rechaza portadas inválidas, repetidas y más de doce imágenes", () => {
     );
   }
 });
+test("marca: valor por defecto compatible y tamaños entre 16 y 36 px", () => {
+  const content = initialContent();
+  delete content.site.brandFontSize;
+  assert.equal(validateContent(content).site.brandFontSize, 22);
+  for (const size of [16, 22, 36]) {
+    content.site.brandFontSize = size;
+    assert.equal(validateContent(content).site.brandFontSize, size);
+  }
+  for (const size of [15, 37, 22.5, "22", NaN]) {
+    content.site.brandFontSize = size;
+    assert.throws(
+      () => validateContent(content),
+      (e) => e.status === 400,
+    );
+  }
+});

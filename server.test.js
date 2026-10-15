@@ -114,6 +114,7 @@ test("admin autenticado, fotos, validación, conflicto y persistencia", async ()
       "webp",
     );
     saved.content.site.heroImages = [url];
+    saved.content.site.brandFontSize = 30;
     saved.content.products[0].image = url;
     saved.content.products[0].images = [url];
     saved.content.materials[0].codes = ["001"];
@@ -159,6 +160,7 @@ test("admin autenticado, fotos, validación, conflicto y persistencia", async ()
     assert.equal(restored.content.products[0].name, "Modelo actualizado");
     assert.equal(restored.content.products[0].image, url);
     assert.deepEqual(restored.content.site.heroImages, [url]);
+    assert.equal(restored.content.site.brandFontSize, 30);
     assert.equal((await fetch(base + url)).status, 200);
     assert.equal(
       (await request("/api/admin/content", "GET", null, cookie)).status,
