@@ -56,7 +56,13 @@ export async function createMedia(store, bytes, kind, crop, original = null) {
     await writeFile(join(store, "originals", original), bytes, { flag: "wx" });
   }
   const id = randomUUID(),
-    name = id + (kind === "product" ? "-optimized.webp" : ".webp"),
+    name =
+      id +
+      (kind === "product"
+        ? "-optimized.webp"
+        : ["base", "mask"].includes(kind)
+          ? ".png"
+          : ".webp"),
     url = "/uploads/" + name;
   await writeFile(join(store, "uploads", name), result.data, { flag: "wx" });
   const info = {

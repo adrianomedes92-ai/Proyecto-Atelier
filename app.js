@@ -1,3 +1,4 @@
+import { paintUpholstery, previewDisclaimer } from "./upholstery-preview.js";
 import { applyBrand } from "./brand.js";
 import { setupHeroSlideshow } from "./hero-slideshow.js";
 import { setupProductGallery } from "./product-gallery.js";
@@ -91,7 +92,7 @@ function open(id) {
     });
   const families = availableMaterials(p);
   $("#detail").innerHTML =
-    `<h2>${esc(p.name)}</h2>${p.images?.length ? `<div class="product-gallery">${p.images.map((url, i) => `<img src="${esc(url)}" alt="${esc(p.name)}, foto ${i + 1}" loading="lazy">`).join("")}</div>` : ""}<p>${p.structure ? "Estructura: " + esc(p.structure) + ". " : ""}${esc(p.description)} ${p.reference ? "Medidas de referencia: " + esc(p.reference) + "." : "Consultá las medidas disponibles."}</p><div class="configure-grid"><form id="options"><h3>Hacelo tuyo</h3>${p.options.includes("material") ? `<label>Familia de tapizado <select name="material"><option value="">Elegí una opción</option>${families.map((m) => `<option ${s.material === m.name ? "selected" : ""} value="${esc(m.name)}">${esc(m.type)} · ${esc(m.name)}</option>`).join("")}</select></label><div id="color-control"></div>` : p.options.includes("color") ? `<label>Color deseado para consultar <input name="color" value="${esc(s.color)}" placeholder="Contanos qué color buscás"></label><p class="hint">Color y disponibilidad a confirmar con la fábrica.</p>` : ""}${p.options.includes("measure") ? `<label>Medidas <select name="measure">${p.reference ? `<option value="reference" ${s.measure === "reference" ? "selected" : ""}>Referencia: ${esc(p.reference)}</option>` : ""}${p.range ? `<option value="range" ${s.measure === "range" ? "selected" : ""}>Ancho entre ${p.range[0]} y ${p.range[1]} cm</option>` : ""}<option value="custom" ${s.measure === "custom" ? "selected" : ""}>Otra medida</option></select></label><div id="measure-control"></div>` : ""}${p.options.includes("layout") ? `<label>Configuración modular <textarea name="layout" placeholder="Describí la disposición que querés">${esc(s.layout)}</textarea></label>` : ""}${p.legs.length ? `<label>Patas <select name="leg"><option value="">A definir con la fábrica</option>${p.legs.map((l) => `<option value="${esc(l)}" ${s.leg === l ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>` : ""}${p.options.includes("notes") ? `<label>Observaciones <span>(opcional)</span><textarea name="notes" placeholder="Detalles que querés que tengamos en cuenta">${esc(s.notes)}</textarea></label>` : ""}</form><aside class="summary"><span class="eyebrow">TU CONSULTA</span><h3>Así lo imaginás</h3><pre id="summary-text" aria-live="polite"></pre><ul id="errors" aria-live="polite"></ul><button id="whatsapp" class="button">Consultar por WhatsApp ↗</button><p id="phone-status" class="hint"></p><button id="copy" class="text-button">Copiar consulta</button><p id="copy-status" role="status"></p><p class="hint">La consulta abre una conversación. No se envía automáticamente. La fábrica confirma opciones, medidas y disponibilidad.</p></aside></div>`;
+    `<h2>${esc(p.name)}</h2>${p.images?.length ? `<div class="product-gallery">${p.images.map((url, i) => `<img src="${esc(url)}" alt="${esc(p.name)}, foto ${i + 1}" loading="lazy">`).join("")}</div>` : ""}<p>${p.structure ? "Estructura: " + esc(p.structure) + ". " : ""}${esc(p.description)} ${p.reference ? "Medidas de referencia: " + esc(p.reference) + "." : "Consultá las medidas disponibles."}</p><div class="configure-grid"><form id="options"><h3>Hacelo tuyo</h3>${p.options.includes("material") ? `<label>Tela <select name="material"><option value="">Elegí una opción</option>${families.map((m) => `<option ${s.material === m.name ? "selected" : ""} value="${esc(m.name)}">${esc(m.type)} · ${esc(m.name)}${m.code ? " · " + esc(m.code) : ""}</option>`).join("")}</select></label><div id="color-control"></div>${p.upholstery?.enabled ? `<figure class="upholstery-preview"><canvas id="upholstery-canvas" role="img" aria-label="Vista previa representativa del tapizado"></canvas><figcaption class="hint">${previewDisclaimer}</figcaption><p id="upholstery-status" class="hint" role="status"></p></figure>` : ""}` : p.options.includes("color") ? `<label>Color deseado para consultar <input name="color" value="${esc(s.color)}" placeholder="Contanos qué color buscás"></label><p class="hint">Color y disponibilidad a confirmar con la fábrica.</p>` : ""}${p.options.includes("measure") ? `<label>Medidas <select name="measure">${p.reference ? `<option value="reference" ${s.measure === "reference" ? "selected" : ""}>Referencia: ${esc(p.reference)}</option>` : ""}${p.range ? `<option value="range" ${s.measure === "range" ? "selected" : ""}>Ancho entre ${p.range[0]} y ${p.range[1]} cm</option>` : ""}<option value="custom" ${s.measure === "custom" ? "selected" : ""}>Otra medida</option></select></label><div id="measure-control"></div>` : ""}${p.options.includes("layout") ? `<label>Configuración modular <textarea name="layout" placeholder="Describí la disposición que querés">${esc(s.layout)}</textarea></label>` : ""}${p.legs.length ? `<label>Patas <select name="leg"><option value="">A definir con la fábrica</option>${p.legs.map((l) => `<option value="${esc(l)}" ${s.leg === l ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>` : ""}${p.options.includes("notes") ? `<label>Observaciones <span>(opcional)</span><textarea name="notes" placeholder="Detalles que querés que tengamos en cuenta">${esc(s.notes)}</textarea></label>` : ""}</form><aside class="summary"><span class="eyebrow">TU CONSULTA</span><h3>Así lo imaginás</h3><pre id="summary-text" aria-live="polite"></pre><ul id="errors" aria-live="polite"></ul><button id="whatsapp" class="button">Consultar por WhatsApp ↗</button><p id="phone-status" class="hint"></p><button id="copy" class="text-button">Copiar consulta</button><p id="copy-status" role="status"></p><p class="hint">La consulta abre una conversación. No se envía automáticamente. La fábrica confirma opciones, medidas y disponibilidad.</p></aside></div>`;
   renderColor();
   renderMeasure();
   update();
@@ -102,6 +103,7 @@ function open(id) {
       s.color = "";
       renderColor();
     }
+    if (e.target.name === "color") renderColor();
     if (e.target.name === "measure") renderMeasure();
     update();
   });
@@ -127,13 +129,20 @@ function renderColor() {
     m = materials.find((m) => m.name === s.material);
   if (!$("#color-control")) return;
   $("#color-control").innerHTML = m?.codes.length
-    ? `<label>Código de color <select name="color"><option value="">Elegí un código</option>${m.codes.map((c) => `<option value="${esc(c)}" ${s.color === c ? "selected" : ""}>${esc(c)}</option>`).join("")}</select></label><div class="swatches">${m.codes
+    ? `<label>Color disponible <select name="color"><option value="">Elegí un color</option>${m.codes.map((c) => `<option value="${esc(c)}" ${s.color === c ? "selected" : ""}>${esc(m.swatches?.find((v) => v.code === c)?.name || c)}${m.swatches?.find((v) => v.code === c)?.name ? " · " + esc(c) : ""}</option>`).join("")}</select></label><div class="swatches">${m.codes
         .map((code) => {
           const image = m.swatches?.find((s) => s.code === code)?.image;
-          return `<button type="button" class="swatch" data-code="${esc(code)}" aria-pressed="${s.color === code}">${image ? `<img src="${esc(image)}" alt="Muestra ${esc(m.name)} ${esc(code)}">` : ""}<span>${esc(code)}</span></button>`;
+          return `<button type="button" class="swatch" data-code="${esc(code)}" aria-pressed="${s.color === code}">${image ? `<img src="${esc(image)}" alt="Muestra ${esc(m.name)} ${esc(code)}">` : ""}<span>${esc(m.swatches?.find((v) => v.code === code)?.name || code)}${m.swatches?.find((v) => v.code === code)?.name ? " · " + esc(code) : ""}</span></button>`;
         })
         .join("")}</div>`
     : '<p class="hint">Pediremos el muestrario de la familia elegida; el color se define con la fábrica.</p>';
+  const variant = m?.swatches?.find((v) => v.code === s.color);
+  if (variant?.image) {
+    const sample = document.createElement("div");
+    sample.className = "selected-fabric";
+    sample.innerHTML = `<img src="${esc(variant.image)}" alt="Muestra seleccionada de ${esc(m.name)}"><span>${esc(m.name)}${m.code ? " · " + esc(m.code) : ""}<br>${esc(variant.name || variant.code)}${variant.name ? " · " + esc(variant.code) : ""}</span>`;
+    $("#color-control").append(sample);
+  }
   if (m?.description) {
     const description = document.createElement("p");
     description.className = "hint";
@@ -161,9 +170,39 @@ function renderMeasure() {
         ? `<label>Ancho en cm <input type="number" name="width" min="${selected.range[0]}" max="${selected.range[1]}" value="${esc(s.width)}"></label><p class="hint">Las demás dimensiones se confirman con la fábrica.</p>`
         : "";
 }
+let previewRequest = 0;
 function update() {
   const s = drafts[selected.id],
     errors = validate(selected, s);
+  const canvas = $("#upholstery-canvas");
+  const previewKey = JSON.stringify([selected.id, s.material, s.color]);
+  if (canvas && canvas.dataset.selection !== previewKey) {
+    canvas.dataset.selection = previewKey;
+    const request = ++previewRequest,
+      m = materials.find((m) => m.name === s.material),
+      variant = m?.swatches?.find((v) => v.code === s.color);
+    const target = document.createElement("canvas");
+    $("#upholstery-status").textContent = "Actualizando vista previa…";
+    paintUpholstery(target, selected.upholstery, variant, m?.texture)
+      .then(() => {
+        if (request !== previewRequest || !canvas.isConnected) return;
+        canvas.width = target.width;
+        canvas.height = target.height;
+        canvas.getContext("2d").drawImage(target, 0, 0);
+        $("#upholstery-status").textContent = variant?.image
+          ? ""
+          : s.color
+            ? "Esta variante no tiene muestra. Se conserva la foto base; consultá el muestrario."
+            : "Elegí una tela y un color para ver una aproximación.";
+      })
+      .catch(() => {
+        if (request === previewRequest && canvas.isConnected) {
+          canvas.width = canvas.width;
+          $("#upholstery-status").textContent =
+            "No se pudo generar la vista previa. Las fotos originales y tu selección se conservan.";
+        }
+      });
+  }
   $("#summary-text").textContent = message(selected, s);
   $("#errors").innerHTML = errors.map((e) => `<li>${esc(e)}</li>`).join("");
   const link = whatsappLink(

@@ -130,6 +130,10 @@ const publicFiles = new Set([
   "hero-slideshow.js",
   "brand.js",
   "image-editor.js",
+  "upholstery-preview.js",
+  "mask-editor.js",
+  "upholstery-demo.js",
+  "upholstery-admin.js",
   "crop-geometry.js",
 ]);
 const server = http.createServer(async (req, res) => {

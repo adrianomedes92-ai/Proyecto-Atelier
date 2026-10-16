@@ -65,7 +65,7 @@
 }
 .editor-grid {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 30px;
 }
 .entity-list {
@@ -402,5 +402,81 @@ dialog.image-editor {
   }
   .crop-stage {
     margin: auto;
+  }
+}
+
+.mask-editor {
+  width: min(1000px, calc(100% - 20px));
+  max-height: 94dvh;
+  padding: 24px;
+  border: 1px solid var(--line, #d8d9cc);
+  background: #f8f7f2;
+  color: #343d31;
+}
+.mask-editor::backdrop {
+  background: #192219b3;
+}
+.mask-editor canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 53dvh;
+  width: auto;
+  height: auto;
+  margin: auto;
+  touch-action: none;
+  cursor: crosshair;
+}
+.mask-tools,
+.mask-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+.mask-tools button[aria-pressed="true"] {
+  outline: 3px solid #a5ab96;
+}
+.mask-tools label {
+  max-width: 200px;
+}
+.mask-actions {
+  justify-content: flex-end;
+}
+.upholstery-admin {
+  border-top: 1px solid #d8d9cc;
+  margin-top: 24px;
+  padding-top: 16px;
+}
+.upholstery-admin canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 460px;
+  object-fit: contain;
+}
+.upholstery-admin .mask-tools > label {
+  max-width: 100%;
+}
+@media (max-width: 640px) {
+  .mask-editor {
+    padding: 12px;
+  }
+  .mask-tools button,
+  .mask-actions button {
+    min-height: 44px;
+  }
+  .mask-tools {
+    gap: 7px;
+  }
+}
+.swatch-row {
+  grid-template-columns:
+    minmax(100px, 1fr) minmax(100px, 1fr) minmax(150px, 1fr)
+    90px;
+}
+@media (max-width: 1100px) {
+  .swatch-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

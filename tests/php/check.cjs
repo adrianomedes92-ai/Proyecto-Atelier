@@ -34,6 +34,10 @@ const run = promisify(execFile),
       "admin.html",
       "admin.js",
       "image-editor.js",
+      "upholstery-preview.js",
+      "mask-editor.js",
+      "upholstery-demo.js",
+      "upholstery-admin.js",
       "crop-geometry.js",
       "admin.css",
       "style.css",
@@ -47,6 +51,9 @@ const run = promisify(execFile),
       "brand.js",
     ])
       await cp(join(root, name), join(pub, name));
+    await cp(join(root, "images", "demo"), join(pub, "images", "demo"), {
+      recursive: true,
+    });
     await writeFile(
       join(priv, "initial-content.json"),
       JSON.stringify({ content: initialContent() }),
@@ -292,6 +299,31 @@ const run = promisify(execFile),
       ).metadata();
       assert.equal(croppedMeta.width, 1000);
       assert.equal(croppedMeta.height, 800);
+      for (const kind of ["base", "mask"]) {
+        const bytes = await require("node:fs/promises").readFile(
+          join(
+            root,
+            "images/demo/",
+            kind === "base" ? "armchair-base.png" : "armchair-mask.png",
+          ),
+        );
+        const response = await fetch(base + "/api/admin/upload", {
+          method: "POST",
+          headers: { Origin: base, Cookie: cookie, "X-Image-Kind": kind },
+          body: bytes,
+        });
+        assert.equal(response.status, 201, await response.clone().text());
+        const info = await response.json();
+        assert.ok(info.url.endsWith(".png"));
+        const published = Buffer.from(
+          await (await fetch(base + info.url)).arrayBuffer(),
+        );
+        assert.equal((await sharp(published).metadata()).format, "png");
+        assert.deepEqual(
+          await sharp(published).ensureAlpha().raw().toBuffer(),
+          await sharp(bytes).ensureAlpha().raw().toBuffer(),
+        );
+      }
       for (const kind of ["swatch", "hero"]) {
         const result = await fetch(base + "/api/admin/upload", {
           method: "POST",
@@ -529,7 +561,14 @@ const run = promisify(execFile),
             "Modelo PHP & MySQL",
           ),
         );
+        await page.locator("#close").click();
+        await page.goto(base + "/admin");
+        await page.locator("#panel").waitFor({ state: "visible" });
+        await require("../upholstery-flow.cjs")(page, base, root, false);
         assert.deepEqual(errors, []);
+        console.log(
+          "PASS tapizados PHP/MySQL: base y máscara PNG sin pérdida en GD e Imagick, datos de variantes, editor de máscara, originales y publicación.",
+        );
         console.log(
           "PASS navegador móvil contra PHP/MySQL: admin, guardar contenido, portada, catálogo y configurador.",
         );

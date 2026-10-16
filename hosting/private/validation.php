@@ -48,10 +48,10 @@ function validate_content($input): array {
         foreach (list_value($m['swatches'] ?? [],'Muestras') as $swatch) {
             $swatch=object_value($swatch,'Muestra'); $code=text_value($swatch['code'] ?? null,'Código',200);
             if (!in_array($code,$codes,true)) fail(400,'La muestra debe corresponder a un código de su familia.');
-            $swatches[]=['code'=>$code,'image'=>image_value($swatch['image'] ?? '')];
+            $swatches[]=['code'=>$code,'image'=>image_value($swatch['image'] ?? ''),'name'=>text_value($swatch['name'] ?? '','Nombre del color',100)];
         }
         if (!unique_list(array_column($swatches,'code'))) fail(400,'Cada muestra debe tener un código único.');
-        $materials[]=['name'=>$name,'type'=>$type,'description'=>text_value($m['description'] ?? '','Descripción de material'),'codes'=>$codes,'swatches'=>$swatches];
+        $materials[]=['code'=>text_value($m['code'] ?? '','Código de tela',100),'texture'=>image_value($m['texture'] ?? ''),'name'=>$name,'type'=>$type,'description'=>text_value($m['description'] ?? '','Descripción de material'),'codes'=>$codes,'swatches'=>$swatches];
     }
     $names=array_column($materials,'name');
     if (!unique_list($names)) fail(400,'Los nombres de familias deben ser únicos.');
@@ -68,7 +68,7 @@ function validate_content($input): array {
         if (array_diff($allowed,$names)) fail(400,"$name: hay familias que ya no existen.");
         if (in_array('material',$options,true) && !$materials) fail(400,"$name: cargá al menos una familia de tapizado.");
         $images=array_values(array_filter(array_map(__NAMESPACE__.'\\image_value',list_value($p['images'] ?? [],'Fotos',12)),fn($path)=>$path!==''));
-        $products[]=['id'=>$id,'name'=>$name,'category'=>$category,'reference'=>$reference,'description'=>text_value($p['description'] ?? '','Descripción'),'structure'=>text_value($p['structure'] ?? '','Estructura',200),'visible'=>($p['visible'] ?? true)!==false,'range'=>$range,'options'=>$options,'materialNames'=>$allowed,'legs'=>string_list($p['legs'] ?? [],'Patas'),'image'=>image_value($p['image'] ?? ''),'images'=>$images];
+        $products[]=['id'=>$id,'name'=>$name,'category'=>$category,'reference'=>$reference,'description'=>text_value($p['description'] ?? '','Descripción'),'structure'=>text_value($p['structure'] ?? '','Estructura',200),'visible'=>($p['visible'] ?? true)!==false,'range'=>$range,'options'=>$options,'materialNames'=>$allowed,'legs'=>string_list($p['legs'] ?? [],'Patas'),'upholstery'=>upholstery_value($p['upholstery'] ?? null),'image'=>image_value($p['image'] ?? ''),'images'=>$images];
     }
     if (!unique_list(array_column($products,'id'))) fail(400,'Los IDs de productos deben ser únicos.');
     return ['site'=>$site,'contact'=>$contact,'materials'=>$materials,'products'=>$products];
@@ -76,7 +76,16 @@ function validate_content($input): array {
 
 function content_image_paths(array $content): array {
     $paths=$content['site']['heroImages'];
-    foreach ($content['products'] as $product) $paths=array_merge($paths,[$product['image']],$product['images']);
-    foreach ($content['materials'] as $material) foreach ($material['swatches'] as $swatch) $paths[]=$swatch['image'];
+    foreach ($content['products'] as $product) $paths=array_merge($paths,[$product['image'],$product['upholstery']['base'],$product['upholstery']['mask']],$product['images']);
+    foreach ($content['materials'] as $material) { $paths[]=$material['texture']; foreach ($material['swatches'] as $swatch) $paths[]=$swatch['image']; }
     return array_values(array_unique(array_filter($paths,fn($path)=>$path!=='')));
+}
+
+function upholstery_value($value): array {
+    if($value===null)return ['enabled'=>false,'base'=>'','mask'=>''];
+    $value=object_value($value,'Vista previa de tapizado');
+    $result=['enabled'=>($value['enabled']??false)===true,'base'=>image_value($value['base']??''),'mask'=>image_value($value['mask']??'')];
+    if($result['enabled'] && (!$result['base'] || !$result['mask']))fail(400,'La vista previa requiere una imagen base y una máscara.');
+    if($result['enabled'] && !str_ends_with($result['mask'],'.png'))fail(400,'La máscara debe ser PNG para conservar sus bordes sin pérdida.');
+    return $result;
 }

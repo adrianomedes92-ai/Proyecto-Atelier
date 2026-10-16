@@ -85,3 +85,38 @@ test("códigos confirmados se vuelven obligatorios", () => {
     m.codes = [];
   }
 });
+
+test("la consulta incluye código de tela y nombre y código del color seleccionado", async () => {
+  const { materials } = await import("./data.js");
+  const fabric = {
+    name: "Prueba de códigos",
+    type: "Tela",
+    code: "T-104",
+    codes: ["C-08"],
+    swatches: [
+      { code: "C-08", name: "Azul petróleo", image: "/uploads/abc.webp" },
+    ],
+  };
+  materials.push(fabric);
+  try {
+    const text = message(
+      {
+        name: "Sillón",
+        reference: "",
+        options: ["material"],
+        legs: [],
+        category: "Sillones",
+      },
+      { material: fabric.name, color: "C-08" },
+    );
+    assert.match(
+      text,
+      /Tapizado: Tela · Prueba de códigos · Código de tela: T-104/,
+    );
+    assert.match(text, /Color: Azul petróleo · C-08/);
+    const encoded = whatsappLink("5491112345678", text);
+    assert.equal(new URL(encoded).searchParams.get("text"), text);
+  } finally {
+    materials.pop();
+  }
+});

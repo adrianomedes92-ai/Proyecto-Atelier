@@ -28,8 +28,9 @@ function gd_canvas(int $width,int $height,bool $neutral=false) {
 }
 function gd_webp($image,int $quality): string { ob_start();try { if (!imagewebp($image,null,$quality)) fail(400,'No se pudo convertir la imagen a WebP.');return ob_get_contents(); } finally {ob_end_clean();} }
 function optimize_media(string $bytes,string $kind,?array $crop=null): array {
-    $presets=['product'=>[1600,1600,82],'hero'=>[1920,2160,82],'swatch'=>[400,400,90]];
+    $presets=['base'=>[1600,1600,100],'mask'=>[1600,1600,100],'product'=>[1600,1600,82],'hero'=>[1920,2160,82],'swatch'=>[400,400,90]];
     if (!isset($presets[$kind])) fail(400,'Tipo de imagen inválido.');
+    if($crop!==null && in_array($kind,['base','mask'],true))fail(400,'La base y la máscara no se recortan por separado.');
     $size=@getimagesizefromstring($bytes);
     if (!$size || !in_array($size[2],[IMAGETYPE_JPEG,IMAGETYPE_PNG,IMAGETYPE_WEBP],true)) fail(400,'Usá una imagen JPG, PNG o WebP válida.');
     if ($size[0]*$size[1]>60000000 || animated_image($bytes,$size[2])) fail(400,'Usá una imagen sin animación y de hasta 60 megapíxeles.');
@@ -48,7 +49,7 @@ function optimize_media(string $bytes,string $kind,?array $crop=null): array {
             $width=$image->getImageWidth();$height=$image->getImageHeight();$scale=min(1,$maxw/$width,$maxh/$height);
             if ($scale<1) $image->resizeImage(max(1,(int)round($width*$scale)),max(1,(int)round($height*$scale)),\Imagick::FILTER_LANCZOS,1);
             $width=$image->getImageWidth();$height=$image->getImageHeight();
-            $image->stripImage();$image->setImageFormat('webp');$image->setImageCompressionQuality($quality);$data=$image->getImageBlob();
+            $image->stripImage();$image->setImageFormat(in_array($kind,['base','mask'],true)?'png':'webp');$image->setImageCompressionQuality($quality);$data=$image->getImageBlob();
             if ($kind==='product') {
                 $thumb=clone $image;$scale=min(1,800/$width,640/$height);
                 if ($scale<1) $thumb->resizeImage(max(1,(int)round($width*$scale)),max(1,(int)round($height*$scale)),\Imagick::FILTER_LANCZOS,1);
@@ -73,7 +74,7 @@ function optimize_media(string $bytes,string $kind,?array $crop=null): array {
             if ($crop!==null) { validate_crop($crop,$sourceWidth,$sourceHeight,$kind);$cropped=imagecrop($image,$crop);if(!$cropped)fail(400,'No se pudo recortar la imagen.');imagedestroy($image);$image=$cropped; }
             $scale=min(1,$maxw/imagesx($image),$maxh/imagesy($image));$width=max(1,(int)round(imagesx($image)*$scale));$height=max(1,(int)round(imagesy($image)*$scale));
             $resized=gd_canvas($width,$height);imagecopyresampled($resized,$image,0,0,0,0,$width,$height,imagesx($image),imagesy($image));imagedestroy($image);
-            $data=gd_webp($resized,$quality);
+            if(in_array($kind,['base','mask'],true)){ob_start();imagepng($resized);$data=ob_get_clean();}else $data=gd_webp($resized,$quality);
             if ($kind==='product') {
                 $scale=min(1,800/$width,640/$height);$w=max(1,(int)round($width*$scale));$h=max(1,(int)round($height*$scale));
                 $canvas=gd_canvas(800,640,true);imagealphablending($canvas,true);imagecopyresampled($canvas,$resized,(int)((800-$w)/2),(int)((640-$h)/2),0,0,$w,$h,$width,$height);$card=gd_webp($canvas,78);imagedestroy($canvas);
@@ -111,7 +112,7 @@ function original_bytes(array $info): string {
     if(!is_file($file))fail(404,'No se encontró el original. Revisá el respaldo de originales.');return file_get_contents($file);
 }
 function upload_media(string $bytes,string $kind,?array $crop=null,?string $original=null): array {
-    $result=optimize_media($bytes,$kind,$crop);$id=bin2hex(random_bytes(16));$name=$id.($kind==='product'?'-optimized.webp':'.webp');$path=storage().'/uploads/';
+    $result=optimize_media($bytes,$kind,$crop);$id=bin2hex(random_bytes(16));$name=$id.($kind==='product'?'-optimized.webp':(in_array($kind,['base','mask'],true)?'.png':'.webp'));$path=storage().'/uploads/';
     foreach(['originals','media'] as $directory)if(!is_dir(storage().'/'.$directory))mkdir(storage().'/'.$directory,0700,true);
     if($original===null){$type=getimagesizefromstring($bytes)[2];$original=bin2hex(random_bytes(16)).'.'.([IMAGETYPE_JPEG=>'jpg',IMAGETYPE_PNG=>'png',IMAGETYPE_WEBP=>'webp'][$type]);if(file_put_contents(storage().'/originals/'.$original,$bytes,LOCK_EX)===false)fail(503,'No se pudo conservar el original.');}
     if (file_put_contents($path.$name,$result['data'],LOCK_EX)===false) fail(503,'No se pudo guardar la foto. Revisá el espacio y los permisos.');

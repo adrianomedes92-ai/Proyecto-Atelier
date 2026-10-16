@@ -1,3 +1,5 @@
+import { mountUpholsteryAdmin } from "./upholstery-admin.js";
+import { addUpholsteryDemo } from "./upholstery-demo.js";
 import { editImage } from "./image-editor.js";
 import { applyBrand } from "./brand.js";
 import { validateContent } from "./content-schema.js";
@@ -180,6 +182,19 @@ function renderProducts() {
             )}</div><h3>Familias habilitadas para este modelo</h3><p class="hint">Sin marcar ninguna se ofrecen todas las familias. Marcá solo las confirmadas para el producto.</p><div class="checks">${content.materials.map((m) => `<label class="check"><input type="checkbox" data-material="${esc(m.name)}" ${p.materialNames.includes(m.name) ? "checked" : ""}>${esc(m.name)}</label>`).join("")}</div>${textarea("Variantes confirmadas de patas (una por línea)", "legs", p.legs.join("\n"))}<h3>Fotografías</h3>${photos(p.images, "product")}</section>`
         : '<section class="editor-card"><h2>Todavía no hay productos</h2><p>Agregá un modelo para comenzar.</p></section>'
     }</div>`;
+  const demoButton = document.createElement("button");
+  demoButton.id = "add-upholstery-demo";
+  demoButton.className = "secondary";
+  demoButton.textContent = "Cargar prueba de tapizados";
+  $("#new-product").after(demoButton);
+  demoButton.onclick = () => {
+    productId = addUpholsteryDemo(content);
+    changed();
+    render();
+    status(
+      "Prueba agregada como producto oculto. Revisá las variantes en esta ficha; no es un modelo real del catálogo.",
+    );
+  };
   $("#new-product").onclick = () => {
     const p = {
       id: "producto-" + crypto.randomUUID(),
@@ -260,9 +275,17 @@ function renderProducts() {
             ...$("#editor").querySelectorAll("[data-material]:checked"),
           ].map((i) => i.dataset.material);
           changed();
+          render();
         }),
     );
   bindImages(p);
+  mountUpholsteryAdmin($("#editor .editor-card"), p, content.materials, {
+    upload,
+    api,
+    lock,
+    changed,
+    status,
+  });
 }
 async function upload(file, kind = "product") {
   if (file.size > 20 * 1024 * 1024) throw Error("La imagen supera los 20 MB.");
@@ -282,8 +305,10 @@ async function upload(file, kind = "product") {
     throw Error(
       "La imagen supera los 60 megapíxeles. Reducí sus dimensiones antes de subirla.",
     );
-  const crop = await editImage({ source: file, kind });
-  if (!crop) return null;
+  const crop = ["base", "mask"].includes(kind)
+    ? null
+    : await editImage({ source: file, kind });
+  if (!crop && !["base", "mask"].includes(kind)) return null;
   status("Optimizando imagen…");
   const result = await api("/api/admin/upload", {
     method: "POST",
@@ -331,6 +356,8 @@ function bindRecrops() {
               const product = content.products.find((p) => p.id === productId);
               product.images[index] = result.url;
               product.image = product.images[0] || "";
+            } else if (button.dataset.texture !== undefined) {
+              content.materials[materialIndex].texture = result.url;
             } else {
               const material = content.materials[materialIndex];
               const code = material.codes[index];
@@ -425,10 +452,10 @@ function renderMaterials() {
   $("#editor").innerHTML =
     `<div class="editor-grid"><aside class="entity-list"><button id="new-material">＋ Agregar familia</button>${content.materials.map((m, i) => `<button data-family="${i}" aria-pressed="${i === materialIndex}">${esc(m.name)}<small>${esc(m.type)} · ${m.codes.length} colores</small></button>`).join("")}</aside><section class="editor-card">${
       m
-        ? `<div class="editor-toolbar"><h2>Telas y colores</h2><button id="delete-material" class="secondary danger">Eliminar familia</button></div><div class="field-grid">${field("Nombre de la familia", "name", m.name)}${field("Tipo (Tela, Ecocuero, etc.)", "type", m.type)}</div>${textarea("Descripción del material", "description", m.description || "")}<h3>Códigos y muestras</h3><p class="hint">Cargá códigos exactos y fotos reales de las muestras. Recomendado: 800 × 800 px, cuadrada (1:1), con luz neutra y sin filtros. Se optimiza a WebP de hasta 400 × 400 px. El color en pantalla es orientativo: confirmalo con la muestra física. Si un código no tiene foto, se muestra solo su nombre.</p><div id="swatch-list">${m.codes
+        ? `<div class="editor-toolbar"><h2>Telas y colores</h2><button id="delete-material" class="secondary danger">Eliminar familia</button></div><div class="field-grid">${field("Nombre de la familia", "name", m.name)}${field("Tipo (Tela, Ecocuero, etc.)", "type", m.type)}${field("Código de la tela", "code", m.code || "")}</div><h3>Textura de la tela</h3><p class="hint">Foto cercana del tejido, sin pliegues ni perspectiva. Cada color tendrá además su muestra real. La vista previa usa ambos archivos.</p>${m.texture ? `<img src="${esc(m.texture)}" alt="Textura" width="100"><button type="button" class="secondary" data-recrop="${esc(m.texture)}" data-crop-kind="swatch" data-texture>Editar textura</button><button type="button" data-remove-texture class="secondary">Quitar textura</button>` : ""}<label>Cargar o reemplazar textura<input type="file" data-texture-upload accept="image/jpeg,image/png,image/webp"></label>${textarea("Descripción del material", "description", m.description || "")}<h3>Códigos y muestras</h3><p class="hint">Cargá códigos exactos y fotos reales de las muestras. Recomendado: 800 × 800 px, cuadrada (1:1), con luz neutra y sin filtros. Se optimiza a WebP de hasta 400 × 400 px. El color en pantalla es orientativo: confirmalo con la muestra física. Si un código no tiene foto, se muestra solo su nombre.</p><div id="swatch-list">${m.codes
             .map((code, i) => {
               const photo = m.swatches.find((s) => s.code === code)?.image;
-              return `<div class="swatch-row">${field("Código", "code-" + i, code)}<div>${photo ? `<img src="${esc(photo)}" alt="Muestra ${esc(code)}"><button type="button" class="secondary" data-recrop="${esc(photo)}" data-crop-kind="swatch" data-crop-index="${i}">Editar encuadre</button><button class="text-button" data-remove-swatch="${i}">Quitar foto</button>` : ""}<label>Foto de muestra<input type="file" data-swatch="${i}" accept="image/jpeg,image/png,image/webp"></label></div><button class="secondary danger" data-delete-code="${i}">Quitar código</button></div>`;
+              return `<div class="swatch-row">${field("Código de color", "code-" + i, code)}${field("Nombre del color", "colorname-" + i, m.swatches.find((s) => s.code === code)?.name || "")}<div>${photo ? `<img src="${esc(photo)}" alt="Muestra ${esc(code)}"><button type="button" class="secondary" data-recrop="${esc(photo)}" data-crop-kind="swatch" data-crop-index="${i}">Editar encuadre</button><button class="text-button" data-remove-swatch="${i}">Quitar foto</button>` : ""}<label>Foto de muestra<input type="file" data-swatch="${i}" accept="image/jpeg,image/png,image/webp"></label></div><button class="secondary danger" data-delete-code="${i}">Quitar código</button></div>`;
             })
             .join(
               "",
@@ -488,9 +515,17 @@ function renderMaterials() {
                   n === old ? m.name : n,
                 )),
             );
-          } else if (key === "type" || key === "description")
+          } else if (["type", "description", "code"].includes(key))
             m[key] = input.value;
-          else {
+          else if (key.startsWith("colorname-")) {
+            const code = m.codes[Number(key.split("-")[1])];
+            let swatch = m.swatches.find((v) => v.code === code);
+            if (!swatch) {
+              swatch = { code, image: "", name: "" };
+              m.swatches.push(swatch);
+            }
+            swatch.name = input.value;
+          } else {
             const index = Number(key.split("-")[1]),
               old = m.codes[index];
             m.codes[index] = input.value;
@@ -501,6 +536,28 @@ function renderMaterials() {
           changed();
         }),
     );
+  $("[data-texture-upload]").onchange = async (e) => {
+    lock(true);
+    try {
+      const url = await upload(e.target.files[0], "swatch");
+      if (url) {
+        m.texture = url;
+        changed();
+        status("Textura cargada en el borrador. Guardá los cambios.");
+      }
+    } catch (e) {
+      status(e.message, true);
+    } finally {
+      lock(false);
+      render();
+    }
+  };
+  if ($("[data-remove-texture]"))
+    $("[data-remove-texture]").onclick = () => {
+      m.texture = "";
+      changed();
+      render();
+    };
   $("#add-code").onclick = () => {
     m.codes.push("");
     changed();
@@ -524,9 +581,10 @@ function renderMaterials() {
     .forEach(
       (b) =>
         (b.onclick = () => {
-          m.swatches = m.swatches.filter(
-            (s) => s.code !== m.codes[Number(b.dataset.removeSwatch)],
+          const swatch = m.swatches.find(
+            (s) => s.code === m.codes[Number(b.dataset.removeSwatch)],
           );
+          if (swatch) swatch.image = "";
           changed();
           render();
         }),
@@ -549,8 +607,9 @@ function renderMaterials() {
               status("Carga cancelada. Se conserva la muestra anterior.");
               return;
             }
+            const name = m.swatches.find((s) => s.code === code)?.name || "";
             m.swatches = m.swatches.filter((s) => s.code !== code);
-            m.swatches.push({ code, image: url });
+            m.swatches.push({ code, name, image: url });
             changed();
             status("Muestra optimizada en WebP. Guardá los cambios.");
           } catch (e) {

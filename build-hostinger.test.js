@@ -21,6 +21,14 @@ test("paquete Hostinger migra contenido y fotos sin copiar credenciales o sesion
     content.products[0].image = "/uploads/abc-optimized.webp";
     content.products[0].images = [content.products[0].image];
     content.site.heroImages = [content.products[0].image];
+    content.products[0].upholstery = {
+      enabled: true,
+      base: "/uploads/aaa.png",
+      mask: "/uploads/bbb.png",
+    };
+    content.materials[0].texture = "/uploads/ccc.webp";
+    for (const name of ["aaa.png", "bbb.png", "ccc.webp"])
+      await writeFile(join(source, "uploads", name), "prueba-tapizado");
     await writeFile(
       join(source, "content.json"),
       JSON.stringify({ revision: 8, content }),
@@ -53,6 +61,16 @@ test("paquete Hostinger migra contenido y fotos sin copiar credenciales o sesion
       "brand.js",
       "hero-slideshow.js",
       "product-gallery.js",
+    ])
+      assert.ok(files["public_html/" + name]);
+    for (const name of ["aaa.png", "bbb.png", "ccc.webp"])
+      assert.ok(files["atelier-private/storage/uploads/" + name]);
+    for (const name of [
+      "upholstery-preview.js",
+      "upholstery-admin.js",
+      "mask-editor.js",
+      "upholstery-demo.js",
+      "images/demo/armchair-mask.png",
     ])
       assert.ok(files["public_html/" + name]);
     assert.ok(files["public_html/.htaccess"]);

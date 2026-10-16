@@ -68,19 +68,29 @@ for (const name of [
   "hero-slideshow.js",
   "brand.js",
   "image-editor.js",
+  "upholstery-preview.js",
+  "mask-editor.js",
+  "upholstery-demo.js",
+  "upholstery-admin.js",
   "crop-geometry.js",
 ])
   await cp(join(root, name), join(pub, name));
+await cp(join(root, "images", "demo"), join(pub, "images", "demo"), {
+  recursive: true,
+});
 const referenced = new Set(
   [
     ...content.site.heroImages,
     ...content.products.flatMap((product) => [
       product.image,
       ...product.images,
+      product.upholstery.base,
+      product.upholstery.mask,
     ]),
-    ...content.materials.flatMap((material) =>
-      (material.swatches || []).map((swatch) => swatch.image),
-    ),
+    ...content.materials.flatMap((material) => [
+      material.texture,
+      ...(material.swatches || []).map((swatch) => swatch.image),
+    ]),
   ].filter(Boolean),
 );
 for (const url of referenced) {

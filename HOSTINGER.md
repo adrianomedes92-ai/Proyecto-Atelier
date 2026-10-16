@@ -129,3 +129,13 @@ Conservá `config.php` y **toda `storage`** al actualizar los archivos del progr
 Los originales nuevos se guardan de forma privada en `storage/originals`, los recortes en la tabla `atelier_media` y su copia portable en `storage/media`, y las versiones visibles en `storage/uploads`. **Las tres carpetas y la base forman parte del respaldo.** El paquete generado desde Node incluye originales y metadatos de las fotos que usa el catálogo; PHP importa esos metadatos a MySQL al volver a editar una foto. No publiques las carpetas privadas.
 
 Las fotos anteriores siguen visibles y se pueden reencuadrar desde su versión disponible, con una advertencia. Las nuevas permiten volver al original sin recargar el archivo. Cada edición genera otra versión y no afecta la foto publicada hasta guardar el contenido del panel.
+
+## Prueba de tapizados, telas y colores
+
+Esta actualización reutiliza las tablas y fichas JSON existentes: **no requiere reinstalar, importar tablas ni borrar la base**. Actualizá los archivos públicos y privados del paquete, conservando `atelier-private/config.php`, toda la carpeta `storage` y los datos de MySQL. Las imágenes de demostración están en `public_html/images/demo`; conservá esa carpeta si usás el piloto. El empaquetador incluye las bases, máscaras y texturas referenciadas, además de sus originales privados.
+
+En el admin, **Productos → Cargar prueba de tapizados** crea un sillón de demostración oculto y una tela con tres colores sintéticos. Podés revisarlo con el selector **Variante para revisar** dentro de su ficha antes de publicarlo. La foto generada y las muestras de prueba no representan productos disponibles. No se activa automáticamente en otros modelos.
+
+Para un sillón real, cargá primero las telas (nombre, código, textura) y sus variantes (nombre/código de color y muestra). Luego cargá una base en su ficha y usá **Crear o editar máscara** para pintar solo tela, o importá un PNG de las mismas dimensiones. La base y la máscara publicada son PNG sin pérdida; las muestras/texturas siguen usando WebP. Activá la vista previa después de revisar las variantes y presioná **Guardar**. Cambiar la base desactiva la vista y retira la máscara del borrador para evitar errores de alineación. Los archivos originales anteriores permanecen almacenados.
+
+El resultado conserva la luminosidad y sombras de la foto y protege lo que queda fuera de la máscara. Es orientativo, no un render 3D con perspectiva del tejido; la página muestra la aclaración sobre color/pantalla y recomienda confirmar con una muestra física. La consulta de WhatsApp incluye tela, código y color. Consultá el flujo y las limitaciones en la sección “Prueba de telas y colores por máscara” del README.

@@ -101,6 +101,7 @@ export function validateContent(value) {
     const swatches = array(m.swatches || [], "Muestras").map((s) => ({
       code: text(record(s, "Muestra").code, "Código", 200),
       image: image(s.image),
+      name: text(s.name || "", "Nombre del color", 100),
     }));
     if (
       swatches.some((s) => !codes.includes(s.code)) ||
@@ -109,6 +110,8 @@ export function validateContent(value) {
       fail("Cada muestra debe corresponder a un código único de la familia.");
     return {
       name,
+      code: text(m.code || "", "Código de tela", 100),
+      texture: image(m.texture),
       type,
       description: text(m.description || "", "Descripción de material"),
       codes,
@@ -168,6 +171,7 @@ export function validateContent(value) {
       options,
       materialNames,
       legs: strings(p.legs || [], "Patas"),
+      upholstery: upholstery(p.upholstery),
       image: image(p.image),
       images: array(p.images || [], "Fotos", 12)
         .map(image)
@@ -177,4 +181,19 @@ export function validateContent(value) {
   if (new Set(products.map((p) => p.id)).size !== products.length)
     fail("Los IDs de productos deben ser únicos.");
   return { site, contact, materials, products };
+}
+
+function upholstery(value) {
+  if (value == null) return { enabled: false, base: "", mask: "" };
+  record(value, "Vista previa de tapizado");
+  const result = {
+    enabled: value.enabled === true,
+    base: image(value.base),
+    mask: image(value.mask),
+  };
+  if (result.enabled && (!result.base || !result.mask))
+    fail("La vista previa requiere una imagen base y una máscara.");
+  if (result.enabled && !result.mask.endsWith(".png"))
+    fail("La máscara debe ser PNG para conservar sus bordes sin pérdida.");
+  return result;
 }
