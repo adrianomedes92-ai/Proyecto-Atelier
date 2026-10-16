@@ -113,6 +113,48 @@ test("admin autenticado, fotos, validación, conflicto y persistencia", async ()
       (await sharp(Buffer.from(await photo.arrayBuffer())).metadata()).format,
       "webp",
     );
+    const info = await (
+      await request(
+        "/api/admin/image-info?url=" + encodeURIComponent(url),
+        "GET",
+        null,
+        cookie,
+      )
+    ).json();
+    const source = await request(info.sourceUrl, "GET", null, cookie);
+    assert.deepEqual(Buffer.from(await source.arrayBuffer()), png);
+    assert.equal((await request(info.sourceUrl)).status, 401);
+    const crop = { x: 10, y: 8, width: 50, height: 40 };
+    const croppedResponse = await request(
+      "/api/admin/recrop",
+      "POST",
+      { url, kind: "product", crop },
+      cookie,
+    );
+    assert.equal(croppedResponse.status, 201);
+    const cropped = await croppedResponse.json();
+    assert.notEqual(cropped.url, url);
+    assert.equal(cropped.original, info.original);
+    assert.deepEqual(cropped.crop, crop);
+    assert.equal(
+      (
+        await sharp(
+          Buffer.from(await (await fetch(base + cropped.url)).arrayBuffer()),
+        ).metadata()
+      ).width,
+      50,
+    );
+    assert.equal(
+      (
+        await request(
+          "/api/admin/recrop",
+          "POST",
+          { url, kind: "product", crop: { ...crop, x: 999 } },
+          cookie,
+        )
+      ).status,
+      400,
+    );
     saved.content.site.heroImages = [url];
     saved.content.site.brandFontSize = 30;
     saved.content.products[0].image = url;

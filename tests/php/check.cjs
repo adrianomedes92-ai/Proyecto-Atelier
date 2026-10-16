@@ -33,6 +33,8 @@ const run = promisify(execFile),
       "index.html",
       "admin.html",
       "admin.js",
+      "image-editor.js",
+      "crop-geometry.js",
       "admin.css",
       "style.css",
       "app.js",
@@ -253,6 +255,43 @@ const run = promisify(execFile),
       ).metadata();
       assert.equal(thumb.width, 800);
       assert.equal(thumb.height, 640);
+      const info = await (
+        await request(
+          "/api/admin/image-info?url=" + encodeURIComponent(uploaded.url),
+          "GET",
+          null,
+          cookie,
+        )
+      ).json();
+      assert.deepEqual(
+        Buffer.from(
+          await (
+            await request(info.sourceUrl, "GET", null, cookie)
+          ).arrayBuffer(),
+        ),
+        image,
+      );
+      assert.equal((await request(info.sourceUrl)).status, 401);
+      const crop = { x: 400, y: 300, width: 1000, height: 800 };
+      const croppedResponse = await request(
+        "/api/admin/recrop",
+        "POST",
+        { url: uploaded.url, kind: "product", crop },
+        cookie,
+      );
+      assert.equal(
+        croppedResponse.status,
+        201,
+        await croppedResponse.clone().text(),
+      );
+      const cropped = await croppedResponse.json();
+      assert.equal(cropped.original, info.original);
+      assert.deepEqual(cropped.crop, crop);
+      const croppedMeta = await sharp(
+        Buffer.from(await (await fetch(base + cropped.url)).arrayBuffer()),
+      ).metadata();
+      assert.equal(croppedMeta.width, 1000);
+      assert.equal(croppedMeta.height, 800);
       for (const kind of ["swatch", "hero"]) {
         const result = await fetch(base + "/api/admin/upload", {
           method: "POST",
@@ -264,6 +303,59 @@ const run = promisify(execFile),
         assert.ok(info.width <= (kind === "swatch" ? 400 : 1920));
       }
     }
+    // Simula el original y el metadato portable que genera el paquete Node.
+    await mkdir(join(priv, "storage", "originals"), { recursive: true });
+    await mkdir(join(priv, "storage", "media"), { recursive: true });
+    await writeFile(join(priv, "storage", "originals", "abcdef.jpg"), image);
+    await writeFile(
+      join(priv, "storage", "uploads", "abcdef-optimized.webp"),
+      await sharp(image).rotate().resize(800).webp().toBuffer(),
+    );
+    const portable = {
+      url: "/uploads/abcdef-optimized.webp",
+      original: "abcdef.jpg",
+      kind: "product",
+      crop: null,
+      sourceWidth: 3200,
+      sourceHeight: 2400,
+      width: 800,
+      height: 600,
+    };
+    const sidecar = join(
+      priv,
+      "storage",
+      "media",
+      "abcdef-optimized.webp.json",
+    );
+    await writeFile(sidecar, JSON.stringify(portable));
+    const imported = await (
+      await request(
+        "/api/admin/image-info?url=" + encodeURIComponent(portable.url),
+        "GET",
+        null,
+        cookie,
+      )
+    ).json();
+    assert.equal(imported.legacy, false);
+    await rm(sidecar);
+    const fromDatabase = await (
+      await request(
+        "/api/admin/image-info?url=" + encodeURIComponent(portable.url),
+        "GET",
+        null,
+        cookie,
+      )
+    ).json();
+    assert.equal(fromDatabase.original, portable.original);
+    assert.deepEqual(
+      Buffer.from(
+        await (
+          await request(fromDatabase.sourceUrl, "GET", null, cookie)
+        ).arrayBuffer(),
+      ),
+      image,
+    );
+    await writeFile(sidecar, JSON.stringify(portable));
     saved.content.products[0].name = "Modelo PHP & MySQL";
     saved.content.products[0].image = uploaded.url;
     saved.content.products[0].images = [uploaded.url];
@@ -385,6 +477,42 @@ const run = promisify(execFile),
           );
           throw error;
         }
+        await page.locator("[data-upload=product]").setInputFiles({
+          name: "original.jpg",
+          mimeType: "image/jpeg",
+          buffer: image,
+        });
+        await page.locator(".image-editor").waitFor();
+        await page.locator("[data-crop-zoom]").fill("1.5");
+        await page.locator("[data-crop-confirm]").click();
+        await page.waitForFunction(
+          () => document.querySelectorAll(".image-item img").length === 2,
+        );
+        const firstCropUrl = await page
+          .locator(".image-item img")
+          .nth(1)
+          .getAttribute("src");
+        await page.locator("#save").click();
+        await page.getByText("Todos los cambios están guardados.").waitFor();
+        await page.locator("[data-recrop]").nth(1).click();
+        await page.locator(".image-editor").waitFor();
+        await page.locator("[data-crop-zoom]").fill("2");
+        await page.locator("[data-crop-confirm]").click();
+        await page.waitForFunction(
+          (old) =>
+            document
+              .querySelectorAll(".image-item img")[1]
+              .getAttribute("src") !== old,
+          firstCropUrl,
+        );
+        const recropUrl = await page
+          .locator(".image-item img")
+          .nth(1)
+          .getAttribute("src");
+        await page.locator("#save").click();
+        await page.getByText("Todos los cambios están guardados.").waitFor();
+        const persisted = await (await fetch(base + "/api/content")).json();
+        assert.equal(persisted.content.products[0].images[1], recropUrl);
         await page.locator("[data-tab=site]").click();
         await page.locator("[data-field=heroTitle]").fill("Atelier desde PHP");
         await page.locator("#save").click();

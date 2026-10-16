@@ -1,4 +1,4 @@
-import { optimizeImage } from "./image-processing.js";
+import { createMedia, mediaInfo, originalBytes } from "./media-store.js";
 import http from "node:http";
 import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import { resolve, extname, join } from "node:path";
@@ -129,6 +129,8 @@ const publicFiles = new Set([
   "product-gallery.js",
   "hero-slideshow.js",
   "brand.js",
+  "image-editor.js",
+  "crop-geometry.js",
 ]);
 const server = http.createServer(async (req, res) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -226,31 +228,58 @@ const server = http.createServer(async (req, res) => {
           saving = false;
         }
       }
+      if (pathname === "/api/admin/image-info" && req.method === "GET") {
+        const url = new URL(req.url, "http://localhost").searchParams.get(
+          "url",
+        );
+        return json(res, 200, await mediaInfo(store, url));
+      }
+      if (pathname === "/api/admin/image-source" && req.method === "GET") {
+        const url = new URL(req.url, "http://localhost").searchParams.get(
+          "url",
+        );
+        const info = await mediaInfo(store, url),
+          bytes = await originalBytes(store, info);
+        res.setHeader(
+          "Content-Type",
+          info.original?.endsWith(".jpg")
+            ? "image/jpeg"
+            : info.original?.endsWith(".png")
+              ? "image/png"
+              : "image/webp",
+        );
+        res.setHeader("Cache-Control", "no-store");
+        res.end(bytes);
+        return;
+      }
+      if (pathname === "/api/admin/recrop" && req.method === "POST") {
+        const request = await input(req);
+        const info = await mediaInfo(store, request.url);
+        if (!request.crop)
+          return json(res, 400, { error: "Falta el encuadre." });
+        return json(
+          res,
+          201,
+          await createMedia(
+            store,
+            await originalBytes(store, info),
+            request.kind,
+            request.crop,
+            info.legacy ? null : info.original,
+          ),
+        );
+      }
       if (pathname === "/api/admin/upload" && req.method === "POST") {
         const bytes = await body(req, 20 * 1024 * 1024);
         const kind = req.headers["x-image-kind"] || "product";
-        const result = await optimizeImage(bytes, kind);
-        const id = randomUUID();
-        const name = id + (kind === "product" ? "-optimized.webp" : ".webp");
-        await writeFile(join(store, "uploads", name), result.data, {
-          flag: "wx",
-        });
-        let thumbnailUrl;
-        if (result.card) {
-          const thumbnailName = id + "-card.webp";
-          await writeFile(join(store, "uploads", thumbnailName), result.card, {
-            flag: "wx",
-          });
-          thumbnailUrl = "/uploads/" + thumbnailName;
+        let crop = null;
+        try {
+          if (req.headers["x-image-crop"])
+            crop = JSON.parse(req.headers["x-image-crop"]);
+        } catch {
+          return json(res, 400, { error: "El encuadre no es válido." });
         }
-        return json(res, 201, {
-          url: "/uploads/" + name,
-          thumbnailUrl,
-          width: result.width,
-          height: result.height,
-          originalBytes: result.originalBytes,
-          optimizedBytes: result.optimizedBytes,
-        });
+        return json(res, 201, await createMedia(store, bytes, kind, crop));
       }
       return json(res, 404, { error: "No encontrado." });
     }
@@ -302,6 +331,11 @@ const server = http.createServer(async (req, res) => {
     res.end(req.method === "HEAD" ? undefined : data);
   } catch (e) {
     if (e.code === "ENOENT") {
+      if (req.url.startsWith("/api/"))
+        return json(res, 404, {
+          error:
+            "No se encontró la imagen o su original. Revisá el respaldo del almacenamiento.",
+        });
       res.writeHead(404);
       res.end("No encontrado");
     } else {

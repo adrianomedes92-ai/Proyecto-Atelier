@@ -1,3 +1,4 @@
+import { validateCrop } from "./crop-geometry.js";
 import sharp from "sharp";
 sharp.concurrency(2);
 export const imagePresets = {
@@ -5,7 +6,7 @@ export const imagePresets = {
   hero: { width: 1920, height: 2160, quality: 82 },
   swatch: { width: 400, height: 400, quality: 90 },
 };
-export async function optimizeImage(bytes, kind = "product") {
+export async function optimizeImage(bytes, kind = "product", crop = null) {
   if (!Object.hasOwn(imagePresets, kind))
     throw Object.assign(Error("Tipo de imagen inválido."), { status: 400 });
   const preset = imagePresets[kind];
@@ -20,8 +21,13 @@ export async function optimizeImage(bytes, kind = "product") {
       (metadata.pages || 1) > 1
     )
       throw Error("Formato no admitido.");
+    const oriented = metadata.autoOrient || metadata;
+    if (crop)
+      source
+        .autoOrient()
+        .extract(validateCrop(crop, oriented.width, oriented.height, kind));
+    else source.rotate();
     const { data, info } = await source
-      .rotate()
       .resize({
         width: preset.width,
         height: preset.height,
@@ -51,7 +57,8 @@ export async function optimizeImage(bytes, kind = "product") {
       originalBytes: bytes.length,
       optimizedBytes: data.length + (card?.length || 0),
     };
-  } catch {
+  } catch (error) {
+    if (error.status) throw error;
     throw Object.assign(
       Error(
         "No se pudo procesar la foto. Usá JPG, PNG o WebP sin animación, de hasta 20 MB y 60 megapíxeles.",

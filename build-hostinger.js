@@ -67,6 +67,8 @@ for (const name of [
   "product-gallery.js",
   "hero-slideshow.js",
   "brand.js",
+  "image-editor.js",
+  "crop-geometry.js",
 ])
   await cp(join(root, name), join(pub, name));
 const referenced = new Set(
@@ -87,6 +89,28 @@ for (const url of referenced) {
   const to = join(isUpload ? join(priv, "storage") : pub, url.slice(1));
   await mkdir(dirname(to), { recursive: true });
   await cp(from, to);
+  if (isUpload) {
+    try {
+      const metadata = JSON.parse(
+        await readFile(join(source, "media", url.slice(9) + ".json"), "utf8"),
+      );
+      if (!/^[a-f0-9-]+\.(jpg|png|webp)$/.test(metadata.original))
+        throw Error("Nombre de original inválido.");
+      await mkdir(join(priv, "storage", "originals"), { recursive: true });
+      await mkdir(join(priv, "storage", "media"), { recursive: true });
+      await cp(
+        join(source, "originals", metadata.original),
+        join(priv, "storage", "originals", metadata.original),
+      );
+      await writeFile(
+        join(priv, "storage", "media", url.slice(9) + ".json"),
+        JSON.stringify(metadata),
+      );
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+      if (error.path && !error.path.endsWith(".json")) throw error;
+    }
+  }
   if (url.endsWith("-optimized.webp")) {
     const thumb = url.replace("-optimized.webp", "-card.webp");
     await cp(

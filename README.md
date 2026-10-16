@@ -47,7 +47,9 @@ El teléfono publicado es `11-73730703`. Antes de habilitar el botón, verificá
 El servidor crea una carpeta **`.storage`** en el proyecto:
 
 - `content.json`: productos, materiales y textos; se guarda de forma atómica.
-- `uploads/`: fotos cargadas.
+- `uploads/`: versiones públicas optimizadas y miniaturas.
+- `originals/`: originales privados de las nuevas fotos.
+- `media/`: encuadres y referencias de originales.
 - `admin.json`: hash de la contraseña del panel.
 
 **Respaldá toda la carpeta `.storage` en un lugar privado**, incluyendo las imágenes. Está excluida de Git: ni las fotos cargadas ni los cambios del admin se suben automáticamente a GitHub. Cada computadora tiene sus propios datos. Para compartir la administración, todos deben entrar al mismo servidor. No hay sincronización entre localhost y una futura web publicada.
@@ -81,7 +83,7 @@ Las imágenes nuevas se procesan automáticamente **en el servidor** mediante Sh
 - Se aplica la orientación de la cámara, se elimina la metadata original (incluida ubicación EXIF), se respeta la proporción y no se agranda el contenido de fotos pequeñas.
 - Se convierten a **WebP**. Las fotos de productos conservan detalle hasta 1600 × 1600 px (caja máxima, sin recortar), y generan una miniatura de **800 × 640 px** para las tarjetas con fondo neutro para completar el encuadre.
 - Inicio: caja máxima de 1920 × 2160 px. Muestras: caja máxima de 400 × 400 px, con calidad mayor para preservar textura. La conversión con compresión puede variar ligeramente el color; la muestra física es la referencia.
-- El original subido no se conserva: guardá tus originales aparte. Algunas imágenes muy pequeñas ya comprimidas pueden no reducir su peso; la optimización prioriza dimensiones apropiadas y formatos consistentes.
+- Las fotos nuevas conservan el original privado para volver a editar el encuadre. Las anteriores al editor solo tienen la versión optimizada disponible. Algunas imágenes muy pequeñas ya comprimidas pueden no reducir su peso; la optimización prioriza dimensiones apropiadas y formatos consistentes.
 
 **Guía de preparación visible en el admin:**
 
@@ -89,7 +91,7 @@ Las imágenes nuevas se procesan automáticamente **en el servidor** mediante Sh
 - **Inicio:** 1920 × 1080 px, horizontal **16:9**, con el producto hacia la derecha y aproximadamente el 40% izquierdo libre para texto. Conservá margen alrededor del mueble y verificá la composición en celular.
 - **Telas:** 800 × 800 px, cuadrada **1:1**, luz neutra y sin filtros. Mostrá una superficie representativa de la textura.
 
-Las proporciones son recomendaciones: el sistema acepta otras dimensiones y muestra la foto completa sin deformar ni recortar. Las fotos ya cargadas siguen funcionando, pero **no se reconvierten solas**: volvé a cargarlas si querés optimizarlas. Respaldá `.storage` antes de hacerlo.
+Las dimensiones sugeridas ayudan a preparar la foto: al subirla, elegís el área que querés publicar dentro de la proporción de cada ubicación. Las fotos ya cargadas siguen funcionando; **Editar encuadre** permite generar una nueva versión optimizada sin volver a subirlas. Respaldá `.storage` antes de hacerlo.
 
 ## Galería del catálogo
 
@@ -117,3 +119,15 @@ En **Contenido y contacto**, el control **Tamaño del nombre de la marca** permi
 En celular el tamaño se reduce automáticamente a un rango de 16–26 px. Los nombres largos, incluso sin espacios, se ajustan en varias líneas; el encabezado crece para mostrarlos completos sin invadir la navegación. El tamaño queda guardado en `site.brandFontSize` dentro de `.storage/content.json`.
 
 La portada sigue admitiendo las imágenes ya cargadas. Para una composición óptima de borde a borde, usá fotos horizontales con espacio vacío a la izquierda. El carrusel conserva los controles, los tiempos, la pausa y la preferencia de reducir movimiento. No hace falta volver a cargar las fotos para actualizar el diseño.
+
+## Editor de encuadre
+
+Al elegir una imagen en el admin se abre un editor antes de subirla. Arrastrá la foto, ajustá el zoom (1×–4×) y mirá **Resultado final**. **Usar encuadre** genera la versión optimizada del borrador; **Guardar cambios** la publica. **Cancelar** o Escape conserva la foto anterior. **Restablecer** vuelve al centro y al zoom inicial de 1×. También podés mover el encuadre con las teclas de flecha al enfocar el marco.
+
+Las proporciones son fijas por ubicación: **producto 5:4**, **portada 16:9**, **muestra 1:1**. La proporción se comprueba en el servidor y el recorte se aplica después de corregir la orientación de la cámara. El marco y la vista previa usan las mismas coordenadas que la versión publicada, sin estirarla.
+
+Cada foto tiene **Editar encuadre**. Las nuevas conservan el archivo original privado y cada edición genera una URL nueva; cancelar o dejar cambios sin guardar no altera la publicación anterior. Si una foto es anterior a esta función, el editor avisa que solo puede usar la versión optimizada que todavía existe. No se puede recuperar el original descartado por versiones anteriores. Al editarla, la versión disponible pasa a conservarse como fuente para futuras ediciones.
+
+En Node, originales y metadatos quedan en `.storage/originals` y `.storage/media`. En PHP se usa la tabla `atelier_media` y las carpetas privadas `storage/originals` y `storage/media`. Respaldá **todo el almacenamiento y la base**, además de las imágenes públicas. El JSON de contenido del admin no incluye los originales.
+
+Para probar el editor en navegador: `node tests/image-editor-check.cjs`, con Playwright y Chromium disponibles (`CHROMIUM_PATH` admite otro ejecutable). La prueba verifica carga, zoom, arrastre real con mouse/touch, publicación, comparación de píxeles, privacidad, reedición, cancelación y las tres proporciones.

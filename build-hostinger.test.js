@@ -13,6 +13,8 @@ test("paquete Hostinger migra contenido y fotos sin copiar credenciales o sesion
   let output;
   try {
     await mkdir(join(source, "uploads"));
+    await mkdir(join(source, "media"));
+    await mkdir(join(source, "originals"));
     const content = initialContent();
     content.products[0].name = "Catálogo migrado";
     content.products[0].description = "/uploads/../../admin.json";
@@ -27,6 +29,16 @@ test("paquete Hostinger migra contenido y fotos sin copiar credenciales o sesion
     await writeFile(join(source, ".env"), "NO-COPIAR-SECRETOS");
     await writeFile(join(source, "uploads/abc-optimized.webp"), "foto-migrada");
     await writeFile(join(source, "uploads/abc-card.webp"), "miniatura-migrada");
+    await writeFile(join(source, "originals/def.png"), "original-privado");
+    await writeFile(
+      join(source, "media/abc-optimized.webp.json"),
+      JSON.stringify({
+        url: "/uploads/abc-optimized.webp",
+        original: "def.png",
+        kind: "product",
+        crop: { x: 0, y: 0, width: 500, height: 400 },
+      }),
+    );
     const { stdout } = await exec(process.execPath, [
       "build-hostinger.js",
       "--storage",
@@ -44,6 +56,19 @@ test("paquete Hostinger migra contenido y fotos sin copiar credenciales o sesion
     ])
       assert.ok(files["public_html/" + name]);
     assert.ok(files["public_html/.htaccess"]);
+    assert.ok(files["public_html/image-editor.js"]);
+    assert.ok(files["public_html/crop-geometry.js"]);
+    assert.equal(
+      strFromU8(files["atelier-private/storage/originals/def.png"]),
+      "original-privado",
+    );
+    assert.ok(files["atelier-private/storage/media/abc-optimized.webp.json"]);
+    assert.ok(
+      !Object.keys(files).some(
+        (name) =>
+          name.startsWith("public_html/") && name.includes("originals/"),
+      ),
+    );
     assert.ok(files["atelier-private/schema.sql"]);
     assert.equal(
       strFromU8(files["atelier-private/storage/uploads/abc-optimized.webp"]),

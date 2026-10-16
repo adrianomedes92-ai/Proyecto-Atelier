@@ -91,9 +91,9 @@ Después de entrar al admin correctamente, eliminá **public_html/setup.php** y 
 
 ## Datos y copias de seguridad
 
-MySQL guarda productos, materiales, ajustes de la web y el acceso al admin en tablas `atelier_*`. Las actualizaciones del contenido son transaccionales y controlan la revisión para impedir sobrescribir otra sesión. Las imágenes quedan en **atelier-private/storage/uploads** y se sirven por la API, sin ejecutar archivos subidos.
+MySQL guarda productos, materiales, ajustes de la web y el acceso al admin en tablas `atelier_*`. Las actualizaciones del contenido son transaccionales y controlan la revisión para impedir sobrescribir otra sesión. Las imágenes quedan en **toda atelier-private/storage** y se sirven por la API, sin ejecutar archivos subidos.
 
-Respaldá **la base desde phpMyAdmin** y **atelier-private/storage/uploads**. Guardá también la configuración privada de forma segura. El JSON de Respaldo del admin sigue sirviendo para exportar/importar contenido, pero no incluye los archivos de las fotos.
+Respaldá **la base desde phpMyAdmin** y **toda atelier-private/storage**. Guardá también la configuración privada de forma segura. El JSON de Respaldo del admin sigue sirviendo para exportar/importar contenido, pero no incluye los archivos de las fotos.
 
 Después de la primera publicación, los cambios hechos en Hostinger y en localhost son independientes. Para actualizar el código, respaldá primero la base y los archivos; reemplazá los archivos del programa pero **preservá config.php y toda storage**. No vuelvas a copiar fotos/semilla de un paquete antiguo sobre el contenido nuevo, ni ejecutes el instalador de nuevo.
 
@@ -121,3 +121,11 @@ npm run test:php
 ```
 
 Las pruebas crean una base y una configuración temporales con contraseñas aleatorias y limpian sus contenedores y archivos al terminar. Verifican instalación protegida, autenticación, límites de intentos, guardado, conflictos, persistencia y WebP con GD e Imagick. No usan la cuenta Hostinger. La comprobación opcional de navegador usa `ATELIER_BROWSER_CHECK=1`, con Playwright y Chromium disponibles (`CHROMIUM_PATH` permite indicar el ejecutable).
+
+## Actualizar al editor de recorte
+
+Conservá `config.php` y **toda `storage`** al actualizar los archivos del programa. No vuelvas a instalar ni borres la base. El servidor crea la tabla adicional `atelier_media` cuando se usa la herramienta por primera vez; si el usuario MySQL no tiene permiso para crear tablas, importá solo la sentencia `CREATE TABLE IF NOT EXISTS atelier_media ...` de `schema.sql` desde phpMyAdmin. No hace falta ejecutar de nuevo `/setup.php`.
+
+Los originales nuevos se guardan de forma privada en `storage/originals`, los recortes en la tabla `atelier_media` y su copia portable en `storage/media`, y las versiones visibles en `storage/uploads`. **Las tres carpetas y la base forman parte del respaldo.** El paquete generado desde Node incluye originales y metadatos de las fotos que usa el catálogo; PHP importa esos metadatos a MySQL al volver a editar una foto. No publiques las carpetas privadas.
+
+Las fotos anteriores siguen visibles y se pueden reencuadrar desde su versión disponible, con una advertencia. Las nuevas permiten volver al original sin recargar el archivo. Cada edición genera otra versión y no afecta la foto publicada hasta guardar el contenido del panel.
