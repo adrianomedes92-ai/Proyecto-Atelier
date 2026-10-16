@@ -1,6 +1,5 @@
-import { mountUpholsteryAdmin } from "./upholstery-admin.js";
-import { addUpholsteryDemo } from "./upholstery-demo.js";
-import { editImage } from "./image-editor.js";
+import { mountVariantAdmin } from "./variant-admin.js";
+import { renderMaterialAdmin } from "./material-admin.js";
 import { applyBrand } from "./brand.js";
 import { validateContent } from "./content-schema.js";
 const $ = (s) => document.querySelector(s);
@@ -61,12 +60,10 @@ function showLogin() {
 }
 async function enter() {
   const data = await api("/api/admin/content");
-  content = data.content;
-  content.products.forEach((product) => {
-    product.images = [
-      ...new Set([product.image, ...product.images].filter(Boolean)),
-    ];
-  });
+  content = validateContent(data.content);
+  content.products.forEach(
+    (p) => (p.images = [...new Set([p.image, ...p.images].filter(Boolean))]),
+  );
   applyBrand(content.site);
   revision = data.revision;
   productId = content.products[0]?.id;
@@ -150,16 +147,15 @@ const textarea = (label, key, value) =>
 function photos(images, kind) {
   const guide =
     kind === "product"
-      ? "<strong>Productos: recomendado 1600 × 1280 px (horizontal, proporción 5:4).</strong> Centrá el mueble y dejá un margen de aproximadamente 10% alrededor. El editor usa un marco 5:4 y la tarjeta genera una miniatura de 800 × 640 px del mismo encuadre."
+      ? "<strong>Productos: recomendado 1600 × 1280 px (horizontal, proporción 5:4).</strong> Centrá el mueble y dejá un margen de aproximadamente 10% alrededor. La tarjeta usa una miniatura de hasta 800 × 640 px; si la proporción es distinta, se agrega fondo neutro para mostrar el mueble completo."
       : "<strong>Inicio: recomendado 1600 × 1800 px (vertical, proporción 8:9).</strong> Dejá aire alrededor del mueble. Mostramos la imagen completa, sin cortar bordes.";
-  return `<div class="image-guide">${guide}</div><div class="image-list">${images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="Foto cargada ${i + 1}"><small>${i === 0 && kind === "product" ? "Portada" : ""}</small><button type="button" class="secondary" data-recrop="${esc(url)}" data-crop-kind="${kind}" data-crop-index="${i}">Editar encuadre</button><button type="button" class="secondary" data-remove-image="${i}" data-kind="${kind}">Quitar foto</button>${i > 0 && kind === "product" ? `<button type="button" class="secondary" data-cover="${i}">Usar de portada</button>` : ""}</div>`).join("")}</div><label class="upload">${kind === "product" ? "Agregar fotografías" : "Cargar imagen de inicio"}<input type="file" data-upload="${kind}" accept="image/jpeg,image/png,image/webp" ${kind === "product" ? "multiple" : ""}></label><p class="hint">JPG, PNG o WebP, hasta 20 MB y 60 megapíxeles. Elegí el encuadre antes de subir. Conservamos el original y generamos WebP con el recorte confirmado. Solo se publican al guardar los cambios.</p>`;
+  return `<div class="image-guide">${guide}</div><div class="image-list">${images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="Foto cargada ${i + 1}"><small>${i === 0 && kind === "product" ? "Portada" : ""}</small><button type="button" class="secondary" data-remove-image="${i}" data-kind="${kind}">Quitar foto</button>${i > 0 && kind === "product" ? `<button type="button" class="secondary" data-cover="${i}">Usar de portada</button>` : ""}</div>`).join("")}</div><label class="upload">${kind === "product" ? "Agregar fotografías" : "Cargar imagen de inicio"}<input type="file" data-upload="${kind}" accept="image/jpeg,image/png,image/webp" ${kind === "product" ? "multiple" : ""}></label><p class="hint">JPG, PNG o WebP, hasta 20 MB y 60 megapíxeles. Convertimos automáticamente a WebP y reducimos el tamaño, sin deformar ni recortar la foto. Solo se publican al guardar los cambios.</p>`;
 }
 function render() {
   if (tab === "products") renderProducts();
   else if (tab === "materials") renderMaterials();
   else if (tab === "site") renderSite();
   else renderBackup();
-  bindRecrops();
 }
 function renderProducts() {
   const p = content.products.find((p) => p.id === productId);
@@ -179,22 +175,9 @@ function renderProducts() {
             )
             .join(
               "",
-            )}</div><h3>Familias habilitadas para este modelo</h3><p class="hint">Sin marcar ninguna se ofrecen todas las familias. Marcá solo las confirmadas para el producto.</p><div class="checks">${content.materials.map((m) => `<label class="check"><input type="checkbox" data-material="${esc(m.name)}" ${p.materialNames.includes(m.name) ? "checked" : ""}>${esc(m.name)}</label>`).join("")}</div>${textarea("Variantes confirmadas de patas (una por línea)", "legs", p.legs.join("\n"))}<h3>Fotografías</h3>${photos(p.images, "product")}</section>`
+            )}</div><h3>Familias habilitadas para este modelo</h3><p class="hint">Sin marcar ninguna se permiten todas las familias; el cliente solo verá variantes activas con muestra y fotos asociadas a este mueble. Marcá solo las confirmadas para el producto.</p><div class="checks">${content.materials.map((m) => `<label class="check"><input type="checkbox" data-material="${esc(m.name)}" ${p.materialNames.includes(m.name) ? "checked" : ""}>${esc(m.name)}</label>`).join("")}</div>${textarea("Variantes confirmadas de patas (una por línea)", "legs", p.legs.join("\n"))}<h3>Fotografías</h3>${photos(p.images, "product")}</section>`
         : '<section class="editor-card"><h2>Todavía no hay productos</h2><p>Agregá un modelo para comenzar.</p></section>'
     }</div>`;
-  const demoButton = document.createElement("button");
-  demoButton.id = "add-upholstery-demo";
-  demoButton.className = "secondary";
-  demoButton.textContent = "Cargar prueba de tapizados";
-  $("#new-product").after(demoButton);
-  demoButton.onclick = () => {
-    productId = addUpholsteryDemo(content);
-    changed();
-    render();
-    status(
-      "Prueba agregada como producto oculto. Revisá las variantes en esta ficha; no es un modelo real del catálogo.",
-    );
-  };
   $("#new-product").onclick = () => {
     const p = {
       id: "producto-" + crypto.randomUUID(),
@@ -279,12 +262,13 @@ function renderProducts() {
         }),
     );
   bindImages(p);
-  mountUpholsteryAdmin($("#editor .editor-card"), p, content.materials, {
+  mountVariantAdmin($("#editor .editor-card"), p, content.materials, {
+    esc,
     upload,
-    api,
     lock,
     changed,
     status,
+    render,
   });
 }
 async function upload(file, kind = "product") {
@@ -305,76 +289,13 @@ async function upload(file, kind = "product") {
     throw Error(
       "La imagen supera los 60 megapíxeles. Reducí sus dimensiones antes de subirla.",
     );
-  const crop = ["base", "mask"].includes(kind)
-    ? null
-    : await editImage({ source: file, kind });
-  if (!crop && !["base", "mask"].includes(kind)) return null;
   status("Optimizando imagen…");
   const result = await api("/api/admin/upload", {
     method: "POST",
     body: file,
-    headers: {
-      "Content-Type": file.type,
-      "X-Image-Kind": kind,
-      "X-Image-Crop": JSON.stringify(crop),
-    },
+    headers: { "Content-Type": file.type, "X-Image-Kind": kind },
   });
   return result.url;
-}
-function bindRecrops() {
-  $("#editor")
-    .querySelectorAll("[data-recrop]")
-    .forEach(
-      (button) =>
-        (button.onclick = async () => {
-          lock(true);
-          try {
-            const url = button.dataset.recrop,
-              kind = button.dataset.cropKind,
-              index = Number(button.dataset.cropIndex);
-            const info = await api(
-              "/api/admin/image-info?url=" + encodeURIComponent(url),
-            );
-            const crop = await editImage({
-              source: info.sourceUrl,
-              kind,
-              crop: info.crop,
-              legacy: info.legacy,
-            });
-            if (!crop) {
-              status("Edición cancelada. Se conserva la foto anterior.");
-              return;
-            }
-            const result = await api("/api/admin/recrop", {
-              method: "POST",
-              body: JSON.stringify({ url, kind, crop }),
-            });
-            if (kind === "hero") {
-              content.site.heroImages[index] = result.url;
-              content.site.heroImage = content.site.heroImages[0] || "";
-            } else if (kind === "product") {
-              const product = content.products.find((p) => p.id === productId);
-              product.images[index] = result.url;
-              product.image = product.images[0] || "";
-            } else if (button.dataset.texture !== undefined) {
-              content.materials[materialIndex].texture = result.url;
-            } else {
-              const material = content.materials[materialIndex];
-              const code = material.codes[index];
-              material.swatches.find((s) => s.code === code).image = result.url;
-            }
-            changed();
-            status(
-              "Encuadre actualizado en el borrador. Guardá los cambios para publicarlo.",
-            );
-          } catch (error) {
-            status(error.message, true);
-          } finally {
-            lock(false);
-            render();
-          }
-        }),
-    );
 }
 function lock(value) {
   busy = value;
@@ -422,21 +343,16 @@ function bindImages(p) {
               p.images.length + files.length > 12
             )
               throw Error("Máximo 12 fotos por producto.");
-            let uploaded = 0;
             for (const file of files) {
               const url = await upload(file, input.dataset.upload);
-              if (!url) continue;
               if (input.dataset.upload === "product") {
                 p.images.push(url);
                 p.image = p.images[0];
               } else content.site.heroImage = url;
               changed();
-              uploaded++;
             }
             status(
-              uploaded
-                ? "Fotos optimizadas en WebP. Guardá los cambios para publicarlas."
-                : "Carga cancelada. No se modificaron las imágenes.",
+              "Fotos optimizadas en WebP. Guardá los cambios para publicarlas.",
             );
           } catch (e) {
             status(e.message, true);
@@ -448,185 +364,24 @@ function bindImages(p) {
     );
 }
 function renderMaterials() {
-  const m = content.materials[materialIndex];
-  $("#editor").innerHTML =
-    `<div class="editor-grid"><aside class="entity-list"><button id="new-material">＋ Agregar familia</button>${content.materials.map((m, i) => `<button data-family="${i}" aria-pressed="${i === materialIndex}">${esc(m.name)}<small>${esc(m.type)} · ${m.codes.length} colores</small></button>`).join("")}</aside><section class="editor-card">${
-      m
-        ? `<div class="editor-toolbar"><h2>Telas y colores</h2><button id="delete-material" class="secondary danger">Eliminar familia</button></div><div class="field-grid">${field("Nombre de la familia", "name", m.name)}${field("Tipo (Tela, Ecocuero, etc.)", "type", m.type)}${field("Código de la tela", "code", m.code || "")}</div><h3>Textura de la tela</h3><p class="hint">Foto cercana del tejido, sin pliegues ni perspectiva. Cada color tendrá además su muestra real. La vista previa usa ambos archivos.</p>${m.texture ? `<img src="${esc(m.texture)}" alt="Textura" width="100"><button type="button" class="secondary" data-recrop="${esc(m.texture)}" data-crop-kind="swatch" data-texture>Editar textura</button><button type="button" data-remove-texture class="secondary">Quitar textura</button>` : ""}<label>Cargar o reemplazar textura<input type="file" data-texture-upload accept="image/jpeg,image/png,image/webp"></label>${textarea("Descripción del material", "description", m.description || "")}<h3>Códigos y muestras</h3><p class="hint">Cargá códigos exactos y fotos reales de las muestras. Recomendado: 800 × 800 px, cuadrada (1:1), con luz neutra y sin filtros. Se optimiza a WebP de hasta 400 × 400 px. El color en pantalla es orientativo: confirmalo con la muestra física. Si un código no tiene foto, se muestra solo su nombre.</p><div id="swatch-list">${m.codes
-            .map((code, i) => {
-              const photo = m.swatches.find((s) => s.code === code)?.image;
-              return `<div class="swatch-row">${field("Código de color", "code-" + i, code)}${field("Nombre del color", "colorname-" + i, m.swatches.find((s) => s.code === code)?.name || "")}<div>${photo ? `<img src="${esc(photo)}" alt="Muestra ${esc(code)}"><button type="button" class="secondary" data-recrop="${esc(photo)}" data-crop-kind="swatch" data-crop-index="${i}">Editar encuadre</button><button class="text-button" data-remove-swatch="${i}">Quitar foto</button>` : ""}<label>Foto de muestra<input type="file" data-swatch="${i}" accept="image/jpeg,image/png,image/webp"></label></div><button class="secondary danger" data-delete-code="${i}">Quitar código</button></div>`;
-            })
-            .join(
-              "",
-            )}</div><button id="add-code" class="secondary">＋ Agregar código</button>`
-        : "<h2>No hay familias cargadas</h2><p>Agregá una tela o un material.</p>"
-    }</section></div>`;
-  $("#new-material").onclick = () => {
-    content.materials.push({
-      name: "Nueva familia " + (content.materials.length + 1),
-      type: "Tela",
-      description: "",
-      codes: [],
-      swatches: [],
-    });
-    materialIndex = content.materials.length - 1;
-    changed();
-    render();
-  };
-  $("#editor")
-    .querySelectorAll("[data-family]")
-    .forEach(
-      (b) =>
-        (b.onclick = () => {
-          if (busy) return;
-          materialIndex = Number(b.dataset.family);
-          render();
-        }),
-    );
-  if (!m) return;
-  $("#delete-material").onclick = () => {
-    if (
-      confirm(
-        `¿Eliminar ${m.name}? Se quitará de las opciones de los productos. Se aplica al guardar.`,
-      )
-    ) {
-      content.products.forEach(
-        (p) => (p.materialNames = p.materialNames.filter((n) => n !== m.name)),
-      );
-      content.materials.splice(materialIndex, 1);
-      materialIndex = 0;
-      changed();
-      render();
-    }
-  };
-  $("#editor")
-    .querySelectorAll("[data-field]")
-    .forEach(
-      (input) =>
-        (input.oninput = () => {
-          const key = input.dataset.field;
-          if (key === "name") {
-            const old = m.name;
-            m.name = input.value;
-            content.products.forEach(
-              (p) =>
-                (p.materialNames = p.materialNames.map((n) =>
-                  n === old ? m.name : n,
-                )),
-            );
-          } else if (["type", "description", "code"].includes(key))
-            m[key] = input.value;
-          else if (key.startsWith("colorname-")) {
-            const code = m.codes[Number(key.split("-")[1])];
-            let swatch = m.swatches.find((v) => v.code === code);
-            if (!swatch) {
-              swatch = { code, image: "", name: "" };
-              m.swatches.push(swatch);
-            }
-            swatch.name = input.value;
-          } else {
-            const index = Number(key.split("-")[1]),
-              old = m.codes[index];
-            m.codes[index] = input.value;
-            m.swatches.forEach((s) => {
-              if (s.code === old) s.code = input.value;
-            });
-          }
-          changed();
-        }),
-    );
-  $("[data-texture-upload]").onchange = async (e) => {
-    lock(true);
-    try {
-      const url = await upload(e.target.files[0], "swatch");
-      if (url) {
-        m.texture = url;
-        changed();
-        status("Textura cargada en el borrador. Guardá los cambios.");
-      }
-    } catch (e) {
-      status(e.message, true);
-    } finally {
-      lock(false);
-      render();
-    }
-  };
-  if ($("[data-remove-texture]"))
-    $("[data-remove-texture]").onclick = () => {
-      m.texture = "";
-      changed();
-      render();
-    };
-  $("#add-code").onclick = () => {
-    m.codes.push("");
-    changed();
-    render();
-  };
-  $("#editor")
-    .querySelectorAll("[data-delete-code]")
-    .forEach(
-      (b) =>
-        (b.onclick = () => {
-          const i = Number(b.dataset.deleteCode),
-            code = m.codes[i];
-          m.codes.splice(i, 1);
-          m.swatches = m.swatches.filter((s) => s.code !== code);
-          changed();
-          render();
-        }),
-    );
-  $("#editor")
-    .querySelectorAll("[data-remove-swatch]")
-    .forEach(
-      (b) =>
-        (b.onclick = () => {
-          const swatch = m.swatches.find(
-            (s) => s.code === m.codes[Number(b.dataset.removeSwatch)],
-          );
-          if (swatch) swatch.image = "";
-          changed();
-          render();
-        }),
-    );
-  $("#editor")
-    .querySelectorAll("[data-swatch]")
-    .forEach(
-      (input) =>
-        (input.onchange = async () => {
-          const code = m.codes[Number(input.dataset.swatch)];
-          if (!code.trim()) {
-            status("Ingresá el código antes de cargar la muestra.", true);
-            input.value = "";
-            return;
-          }
-          lock(true);
-          try {
-            const url = await upload(input.files[0], "swatch");
-            if (!url) {
-              status("Carga cancelada. Se conserva la muestra anterior.");
-              return;
-            }
-            const name = m.swatches.find((s) => s.code === code)?.name || "";
-            m.swatches = m.swatches.filter((s) => s.code !== code);
-            m.swatches.push({ code, name, image: url });
-            changed();
-            status("Muestra optimizada en WebP. Guardá los cambios.");
-          } catch (e) {
-            status(e.message, true);
-          } finally {
-            lock(false);
-            render();
-          }
-        }),
-    );
+  renderMaterialAdmin($("#editor"), content, materialIndex, {
+    esc,
+    field,
+    textarea,
+    setIndex: (index) => (materialIndex = index),
+    upload,
+    lock,
+    changed,
+    status,
+    render,
+  });
 }
 
 function heroPhotos() {
   const images = content.site.heroImages;
-  return `<div class="image-guide"><strong>Portada: recomendado 1920 × 1080 px, horizontal (16:9).</strong> Ubicá el producto hacia la derecha y dejá libre aproximadamente el 40% izquierdo para los textos superpuestos. En celular, el texto queda arriba y la foto se encuadra hacia abajo. Elegí el encuadre 16:9 en el editor: dejá margen alrededor del mueble, evitá textos incrustados y comprobá el resultado en ambos tamaños. Con una imagen se muestra fija; con varias, se alternan cada 5 segundos con fundido de 1 segundo.</div>
+  return `<div class="image-guide"><strong>Portada: recomendado 1920 × 1080 px, horizontal (16:9).</strong> Ubicá el producto hacia la derecha y dejá libre aproximadamente el 40% izquierdo para los textos superpuestos. En celular, el texto queda arriba y la foto se encuadra hacia abajo. La foto conserva su proporción completa: dejá margen alrededor del mueble, evitá textos incrustados y comprobá el resultado en ambos tamaños. Con una imagen se muestra fija; con varias, se alternan cada 5 segundos con fundido de 1 segundo.</div>
     <p class="hint">Hasta 12 imágenes JPG, PNG o WebP, de hasta 20 MB y 60 megapíxeles cada una, sin animación. Se optimizan a WebP. El orden de las miniaturas es el orden de presentación. Los cambios se publican al guardar.</p>
-    <div class="image-list hero-admin-images">${images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="Vista previa de portada ${i + 1}"><strong>Imagen ${i + 1}</strong><button type="button" class="secondary" data-recrop="${esc(url)}" data-crop-kind="hero" data-crop-index="${i}">Editar encuadre</button><div class="hero-order"><button type="button" class="secondary" data-hero-move="${i}" data-direction="-1" aria-label="Mover imagen ${i + 1} antes" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="secondary" data-hero-move="${i}" data-direction="1" aria-label="Mover imagen ${i + 1} después" ${i === images.length - 1 ? "disabled" : ""}>↓</button></div><label class="hero-replace">Reemplazar<input type="file" data-hero-replace="${i}" accept="image/jpeg,image/png,image/webp"></label><button type="button" class="secondary danger" data-hero-remove="${i}">Eliminar imagen ${i + 1}</button></div>`).join("")}</div>
+    <div class="image-list hero-admin-images">${images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="Vista previa de portada ${i + 1}"><strong>Imagen ${i + 1}</strong><div class="hero-order"><button type="button" class="secondary" data-hero-move="${i}" data-direction="-1" aria-label="Mover imagen ${i + 1} antes" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="secondary" data-hero-move="${i}" data-direction="1" aria-label="Mover imagen ${i + 1} después" ${i === images.length - 1 ? "disabled" : ""}>↓</button></div><label class="hero-replace">Reemplazar<input type="file" data-hero-replace="${i}" accept="image/jpeg,image/png,image/webp"></label><button type="button" class="secondary danger" data-hero-remove="${i}">Eliminar imagen ${i + 1}</button></div>`).join("")}</div>
     ${images.length ? "" : '<p class="hint">Sin imágenes: la web conserva la portada gráfica original.</p>'}
     <label class="upload">Agregar imágenes de portada<input type="file" id="hero-upload" accept="image/jpeg,image/png,image/webp" multiple ${images.length >= 12 ? "disabled" : ""}></label>`;
 }
@@ -675,7 +430,6 @@ function bindHeroImages() {
       for (const file of files) {
         try {
           const url = await upload(file, "hero");
-          if (!url) continue;
           if (replaceIndex === undefined) images.push(url);
           else images[replaceIndex] = url;
           synchronize();
@@ -685,11 +439,9 @@ function bindHeroImages() {
         }
       }
       status(
-        uploaded === 0
-          ? "Carga cancelada. No se modificaron las imágenes."
-          : replaceIndex === undefined
-            ? `${uploaded} imagen(es) optimizada(s). Revisá las vistas previas y guardá los cambios.`
-            : "Imagen reemplazada en el borrador. Revisá la vista previa y guardá los cambios.",
+        replaceIndex === undefined
+          ? `${uploaded} imagen(es) optimizada(s). Revisá las vistas previas y guardá los cambios.`
+          : "Imagen reemplazada en el borrador. Revisá la vista previa y guardá los cambios.",
       );
     } catch (error) {
       status(

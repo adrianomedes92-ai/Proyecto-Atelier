@@ -1,3 +1,4 @@
+import { variantsFor } from "./prepared-variants.js";
 // Verificar con la fábrica si corresponde 54 + 11 o 54 + 9 + 11 antes de publicar.
 export let contact = {
   display: "11-73730703",
@@ -115,9 +116,12 @@ export async function loadContent() {
   ({ site, contact, materials, products } = data.content);
   return data;
 }
+export function availableVariants(product) {
+  return variantsFor(product, materials);
+}
 export function availableMaterials(product) {
-  return materials.filter(
-    (m) =>
-      !product.materialNames?.length || product.materialNames.includes(m.name),
+  const variants = availableVariants(product);
+  return materials.filter((m) =>
+    variants.some((v) => v.material.name === m.name),
   );
 }

@@ -98,3 +98,15 @@ function save_content(array $content,int $expected): int {
 }
 require __DIR__.'/validation.php';
 require __DIR__.'/media.php';
+
+// Antes de normalizar las fichas antiguas, guardar su versión completa fuera de public_html.
+function archive_retired_content(array $saved): void {
+    $legacy=false;
+    foreach($saved['content']['products'] as $p)if(array_key_exists('upholstery',$p))$legacy=true;
+    foreach($saved['content']['materials'] as $m)if(array_key_exists('texture',$m))$legacy=true;
+    if(!$legacy)return;
+    $dir=storage().'/backups';if(!is_dir($dir)&&!mkdir($dir,0700,true)&&!is_dir($dir))fail(503,'No se pudo crear el respaldo de datos anteriores.');
+    $json=encode($saved);$file=$dir.'/content-before-prepared-variants-'.$saved['revision'].'-'.substr(hash('sha256',$json),0,12).'.json';
+    if(!is_file($file) && file_put_contents($file,$json,LOCK_EX)===false)fail(503,'No se pudo respaldar la configuración anterior.');
+    if(file_get_contents($file)!==$json)fail(503,'No se pudo verificar el respaldo de configuración.');chmod($file,0600);
+}

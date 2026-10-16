@@ -2,66 +2,100 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { products, materials } from "./data.js";
 import { validate, message, whatsappLink } from "./quote.js";
-test("validación de familia, rangos y medidas personalizadas", () => {
-  const p = products.find((p) => p.id === "clapton-dos");
-  assert.equal(validate(p, { measure: "reference" }).length, 1);
+const fabric = {
+  name: "Prueba de códigos",
+  type: "Tela",
+  code: "T-104",
+  codes: ["C-08", "C-09", "C-10"],
+  swatches: [
+    {
+      code: "C-08",
+      name: "Azul petróleo",
+      image: "/uploads/abc.webp",
+      active: true,
+    },
+    { code: "C-09", name: "Verde", image: "/uploads/def.webp", active: false },
+    { code: "C-10", name: "Rojo", image: "/uploads/abc.webp", active: true },
+  ],
+};
+materials.push(fabric);
+const model = (id = "clapton-dos") => ({
+  ...products.find((p) => p.id === id),
+  variants: [
+    { material: fabric.name, code: "C-08", images: ["/uploads/aaa.webp"] },
+  ],
+});
+const selection = {
+  material: fabric.name,
+  color: "C-08",
+  measure: "reference",
+};
+test("valida medidas y patas conservando la selección de una variante con fotos", () => {
+  const p = { ...model(), legs: ["Madera"] };
+  assert.deepEqual(validate(p, selection), []);
+  assert.ok(validate(p, { ...selection, measure: "range", width: 300 }).length);
   assert.deepEqual(
-    validate(p, { measure: "range", width: "180", material: "PANNE" }),
+    validate(p, { ...selection, measure: "range", width: 180 }),
     [],
   );
   assert.ok(
-    validate(p, { measure: "range", width: 300, material: "PANNE" }).length,
-  );
-  assert.ok(
-    validate(p, { measure: "custom", custom: " ", material: "PANNE" }).length,
+    validate(p, { ...selection, measure: "custom", custom: " " }).length,
   );
   assert.deepEqual(
     validate(p, {
+      ...selection,
       measure: "custom",
       custom: "210 × 95 cm",
-      material: "BOUCLÉ",
+      leg: "Madera",
     }),
     [],
   );
+  assert.ok(validate(p, { ...selection, leg: "No disponible" }).length);
 });
-test("consulta completa se codifica y conserva elecciones sin enviarse", () => {
-  const p = {
-    ...products.find((p) => p.id === "clapton-modular"),
-    legs: ["Variante confirmada"],
-  };
+test("rechaza colores inactivos, sin fotos o de otro mueble y exige elegir cuando hay variantes", () => {
+  const p = model();
+  for (const s of [
+    { measure: "reference" },
+    { ...selection, color: "" },
+    { ...selection, color: "C-09" },
+    { ...selection, color: "C-10" },
+    { ...selection, material: "PANNE" },
+  ])
+    assert.ok(validate(p, s).length);
+  const other = { ...p, variants: [] };
+  assert.ok(validate(other, selection).length);
+  assert.deepEqual(validate(other, { measure: "reference" }), []);
+});
+test("WhatsApp incluye nombre y código de tela, color y variante junto con el resto de la consulta", () => {
+  const p = { ...model("clapton-modular"), legs: ["Madera"] };
   const s = {
+    ...selection,
     measure: "custom",
     custom: "300 × 100 cm",
-    material: "BOUCLÉ",
-    color: "código confirmado",
     layout: "En L, a la derecha",
-    leg: "Variante confirmada",
+    leg: "Madera",
     notes: "Entrega: consultar & coordinar",
   };
   assert.deepEqual(validate(p, s), []);
   const text = message(p, s),
     url = new URL(whatsappLink("5491173730703", text));
   assert.equal(url.searchParams.get("text"), text);
+  assert.equal(url.hostname, "wa.me");
   for (const value of [
     p.name,
     s.custom,
-    s.material,
-    s.color,
     s.layout,
     s.leg,
     s.notes,
+    "Prueba de códigos",
+    "Código de tela: T-104",
+    "Azul petróleo · C-08",
   ])
     assert.ok(text.includes(value));
-  assert.equal(url.hostname, "wa.me");
   assert.equal(whatsappLink("", text), null);
 });
-test("modular requiere disposición y puffs no requieren medidas ficticias", () => {
-  assert.ok(
-    validate(
-      products.find((p) => p.id === "clapton-modular"),
-      { material: "DONN", measure: "reference" },
-    ).length,
-  );
+test("modular requiere disposición; los puffs conservan color a consultar sin medidas ficticias", () => {
+  assert.ok(validate(model("clapton-modular"), selection).length);
   const p = products.find((p) => p.id === "oruga-v");
   assert.deepEqual(validate(p, { color: "Consultar beige" }), []);
   assert.ok(
@@ -70,53 +104,4 @@ test("modular requiere disposición y puffs no requieren medidas ficticias", () 
     ),
   );
   assert.ok(!message(p, {}).includes("Medida solicitada"));
-});
-test("códigos confirmados se vuelven obligatorios", () => {
-  const m = materials[0];
-  m.codes = ["001"];
-  try {
-    const p = products[0];
-    assert.ok(validate(p, { material: m.name, measure: "reference" }).length);
-    assert.deepEqual(
-      validate(p, { material: m.name, measure: "reference", color: "001" }),
-      [],
-    );
-  } finally {
-    m.codes = [];
-  }
-});
-
-test("la consulta incluye código de tela y nombre y código del color seleccionado", async () => {
-  const { materials } = await import("./data.js");
-  const fabric = {
-    name: "Prueba de códigos",
-    type: "Tela",
-    code: "T-104",
-    codes: ["C-08"],
-    swatches: [
-      { code: "C-08", name: "Azul petróleo", image: "/uploads/abc.webp" },
-    ],
-  };
-  materials.push(fabric);
-  try {
-    const text = message(
-      {
-        name: "Sillón",
-        reference: "",
-        options: ["material"],
-        legs: [],
-        category: "Sillones",
-      },
-      { material: fabric.name, color: "C-08" },
-    );
-    assert.match(
-      text,
-      /Tapizado: Tela · Prueba de códigos · Código de tela: T-104/,
-    );
-    assert.match(text, /Color: Azul petróleo · C-08/);
-    const encoded = whatsappLink("5491112345678", text);
-    assert.equal(new URL(encoded).searchParams.get("text"), text);
-  } finally {
-    materials.pop();
-  }
 });

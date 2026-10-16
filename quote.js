@@ -1,11 +1,25 @@
-import { materials, availableMaterials, site } from "./data.js";
+import { materials, availableVariants, site } from "./data.js";
 export function validate(product, s) {
   const errors = [];
-  if (
-    product.options.includes("material") &&
-    !availableMaterials(product).some((m) => m.name === s.material)
-  )
-    errors.push("Elegí una familia de tapizado.");
+  const variants = availableVariants(product);
+  if (product.options.includes("material")) {
+    if (
+      variants.length &&
+      !variants.some((v) => v.material.name === s.material)
+    )
+      errors.push("Elegí una tela disponible para este mueble.");
+    else if (
+      s.material &&
+      !variants.some(
+        (v) => v.material.name === s.material && v.variant.code === s.color,
+      )
+    )
+      errors.push("Elegí un color disponible con imágenes para este mueble.");
+    else if (!variants.length && (s.material || s.color))
+      errors.push(
+        "La combinación elegida ya no está disponible para este mueble.",
+      );
+  }
   if (product.options.includes("measure")) {
     if (!["reference", "custom", "range"].includes(s.measure))
       errors.push("Elegí una medida.");
@@ -22,13 +36,6 @@ export function validate(product, s) {
   }
   if (s.leg && !product.legs.includes(s.leg))
     errors.push("Elegí una variante de patas disponible.");
-  const m = materials.find((m) => m.name === s.material);
-  if (
-    product.options.includes("material") &&
-    m?.codes.length &&
-    !m.codes.includes(s.color)
-  )
-    errors.push("Elegí un código de color.");
   if (product.options.includes("layout") && !s.layout?.trim())
     errors.push("Contanos cómo querés configurar el modular.");
   return errors;

@@ -98,11 +98,17 @@ export function validateContent(value) {
     const codes = strings(m.codes, "Códigos");
     if (new Set(codes).size !== codes.length || codes.some((c) => !c))
       fail("Los códigos deben ser únicos y no estar vacíos.");
-    const swatches = array(m.swatches || [], "Muestras").map((s) => ({
-      code: text(record(s, "Muestra").code, "Código", 200),
-      image: image(s.image),
-      name: text(s.name || "", "Nombre del color", 100),
-    }));
+    const swatches = array(m.swatches || [], "Muestras").map((s) => {
+      record(s, "Muestra");
+      if (s.active !== undefined && typeof s.active !== "boolean")
+        fail("El estado de la variante debe ser activo o inactivo.");
+      return {
+        code: text(record(s, "Muestra").code, "Código", 200),
+        image: image(s.image),
+        name: text(s.name || "", "Nombre del color", 100),
+        active: s.active !== false,
+      };
+    });
     if (
       swatches.some((s) => !codes.includes(s.code)) ||
       new Set(swatches.map((s) => s.code)).size !== swatches.length
@@ -111,7 +117,6 @@ export function validateContent(value) {
     return {
       name,
       code: text(m.code || "", "Código de tela", 100),
-      texture: image(m.texture),
       type,
       description: text(m.description || "", "Descripción de material"),
       codes,
@@ -171,7 +176,7 @@ export function validateContent(value) {
       options,
       materialNames,
       legs: strings(p.legs || [], "Patas"),
-      upholstery: upholstery(p.upholstery),
+      variants: variants(p.variants, materials),
       image: image(p.image),
       images: array(p.images || [], "Fotos", 12)
         .map(image)
@@ -183,17 +188,24 @@ export function validateContent(value) {
   return { site, contact, materials, products };
 }
 
-function upholstery(value) {
-  if (value == null) return { enabled: false, base: "", mask: "" };
-  record(value, "Vista previa de tapizado");
-  const result = {
-    enabled: value.enabled === true,
-    base: image(value.base),
-    mask: image(value.mask),
-  };
-  if (result.enabled && (!result.base || !result.mask))
-    fail("La vista previa requiere una imagen base y una máscara.");
-  if (result.enabled && !result.mask.endsWith(".png"))
-    fail("La máscara debe ser PNG para conservar sus bordes sin pérdida.");
+function variants(value, materials) {
+  const result = array(value || [], "Variantes por mueble", 200).map((v) => {
+    record(v, "Variante por mueble");
+    const material = text(v.material, "Tela asociada", 100),
+      code = text(v.code, "Código de variante", 200);
+    if (!materials.some((m) => m.name === material && m.codes.includes(code)))
+      fail(
+        "La variante asociada debe corresponder a una tela y código existentes.",
+      );
+    const images = array(v.images || [], "Fotos de variante", 12).map(image);
+    if (images.some((url) => !url) || new Set(images).size !== images.length)
+      fail("Las fotos de una variante deben ser válidas y no estar repetidas.");
+    return { material, code, images };
+  });
+  if (
+    new Set(result.map((v) => JSON.stringify([v.material, v.code]))).size !==
+    result.length
+  )
+    fail("Cada mueble admite una sola asociación por tela y código.");
   return result;
 }

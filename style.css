@@ -974,17 +974,6 @@ dialog.lightbox {
   }
 }
 
-/* Solo la vista previa de los modelos habilitados; la galería conserva su diseño. */
-.upholstery-preview {
-  margin: 18px 0;
-}
-.upholstery-preview canvas {
-  display: block;
-  width: 100%;
-  max-height: 480px;
-  object-fit: contain;
-  height: auto;
-}
 .selected-fabric {
   display: flex;
   gap: 12px;
@@ -1003,4 +992,31 @@ dialog.lightbox {
 }
 .swatch {
   max-width: 100%;
+}
+.variant-gallery {
+  position: relative;
+  width: 100%;
+  background: #eeede6;
+  margin: 16px 0;
+  touch-action: pan-y;
+}
+.variant-gallery > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 480px;
+  min-height: 100px;
+  object-fit: contain;
+}
+.variant-gallery .gallery-nav {
+  opacity: 1;
+  visibility: visible;
+  min-width: 44px;
+  min-height: 44px;
+}
+.variant-gallery .gallery-position {
+  pointer-events: none;
+}
+#customizer-original-photos[hidden] {
+  display: none;
 }

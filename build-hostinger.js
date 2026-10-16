@@ -49,6 +49,7 @@ for (const name of [
   "validation.php",
   "media.php",
   "schema.sql",
+  "retire-image-editor.php",
   "config.example.php",
   ".htaccess",
 ])
@@ -67,15 +68,12 @@ for (const name of [
   "product-gallery.js",
   "hero-slideshow.js",
   "brand.js",
-  "image-editor.js",
-  "upholstery-preview.js",
-  "mask-editor.js",
-  "upholstery-demo.js",
-  "upholstery-admin.js",
-  "crop-geometry.js",
+  "prepared-variants.js",
+  "variant-admin.js",
+  "material-admin.js",
 ])
   await cp(join(root, name), join(pub, name));
-await cp(join(root, "images", "demo"), join(pub, "images", "demo"), {
+await cp(join(root, "images"), join(pub, "images"), {
   recursive: true,
 });
 const referenced = new Set(
@@ -84,11 +82,9 @@ const referenced = new Set(
     ...content.products.flatMap((product) => [
       product.image,
       ...product.images,
-      product.upholstery.base,
-      product.upholstery.mask,
+      ...product.variants.flatMap((variant) => variant.images),
     ]),
     ...content.materials.flatMap((material) => [
-      material.texture,
       ...(material.swatches || []).map((swatch) => swatch.image),
     ]),
   ].filter(Boolean),
@@ -99,28 +95,6 @@ for (const url of referenced) {
   const to = join(isUpload ? join(priv, "storage") : pub, url.slice(1));
   await mkdir(dirname(to), { recursive: true });
   await cp(from, to);
-  if (isUpload) {
-    try {
-      const metadata = JSON.parse(
-        await readFile(join(source, "media", url.slice(9) + ".json"), "utf8"),
-      );
-      if (!/^[a-f0-9-]+\.(jpg|png|webp)$/.test(metadata.original))
-        throw Error("Nombre de original inválido.");
-      await mkdir(join(priv, "storage", "originals"), { recursive: true });
-      await mkdir(join(priv, "storage", "media"), { recursive: true });
-      await cp(
-        join(source, "originals", metadata.original),
-        join(priv, "storage", "originals", metadata.original),
-      );
-      await writeFile(
-        join(priv, "storage", "media", url.slice(9) + ".json"),
-        JSON.stringify(metadata),
-      );
-    } catch (error) {
-      if (error.code !== "ENOENT") throw error;
-      if (error.path && !error.path.endsWith(".json")) throw error;
-    }
-  }
   if (url.endsWith("-optimized.webp")) {
     const thumb = url.replace("-optimized.webp", "-card.webp");
     await cp(
@@ -128,6 +102,24 @@ for (const url of referenced) {
       join(isUpload ? join(priv, "storage") : pub, thumb.slice(1)),
     );
   }
+}
+// Preservar todos los archivos subidos y los respaldos del editor retirado.
+for (const dir of ["uploads", "originals", "media", "backups"]) {
+  try {
+    await cp(join(source, dir), join(priv, "storage", dir), {
+      recursive: true,
+      errorOnExist: false,
+    });
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+}
+if (migrated) {
+  await mkdir(join(priv, "storage", "backups"), { recursive: true });
+  await cp(
+    join(source, "content.json"),
+    join(priv, "storage", "backups", "content-before-prepared-variants.json"),
+  );
 }
 await writeFile(
   join(priv, "initial-content.json"),

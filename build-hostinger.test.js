@@ -13,22 +13,37 @@ test("paquete Hostinger migra contenido y fotos sin copiar credenciales o sesion
   let output;
   try {
     await mkdir(join(source, "uploads"));
-    await mkdir(join(source, "media"));
-    await mkdir(join(source, "originals"));
     const content = initialContent();
     content.products[0].name = "Catálogo migrado";
     content.products[0].description = "/uploads/../../admin.json";
     content.products[0].image = "/uploads/abc-optimized.webp";
     content.products[0].images = [content.products[0].image];
     content.site.heroImages = [content.products[0].image];
+    content.materials[0].codes = ["A"];
+    content.materials[0].swatches = [
+      { code: "A", name: "Arena", image: "/uploads/ccc.webp", active: false },
+    ];
+    content.products[0].variants = [
+      {
+        material: content.materials[0].name,
+        code: "A",
+        images: ["/uploads/bbb.webp"],
+      },
+    ];
     content.products[0].upholstery = {
       enabled: true,
-      base: "/uploads/aaa.png",
-      mask: "/uploads/bbb.png",
+      base: "/uploads/ddd.png",
+      mask: "/uploads/eee.png",
     };
-    content.materials[0].texture = "/uploads/ccc.webp";
-    for (const name of ["aaa.png", "bbb.png", "ccc.webp"])
-      await writeFile(join(source, "uploads", name), "prueba-tapizado");
+    await mkdir(join(source, "originals"));
+    await mkdir(join(source, "media"));
+    await writeFile(join(source, "originals", "aaa.png"), "original-anterior");
+    await writeFile(
+      join(source, "media", "abc.webp.json"),
+      "metadato-anterior",
+    );
+    for (const name of ["bbb.webp", "ccc.webp", "ddd.png", "eee.png"])
+      await writeFile(join(source, "uploads", name), "imagen-conservada");
     await writeFile(
       join(source, "content.json"),
       JSON.stringify({ revision: 8, content }),
@@ -37,16 +52,6 @@ test("paquete Hostinger migra contenido y fotos sin copiar credenciales o sesion
     await writeFile(join(source, ".env"), "NO-COPIAR-SECRETOS");
     await writeFile(join(source, "uploads/abc-optimized.webp"), "foto-migrada");
     await writeFile(join(source, "uploads/abc-card.webp"), "miniatura-migrada");
-    await writeFile(join(source, "originals/def.png"), "original-privado");
-    await writeFile(
-      join(source, "media/abc-optimized.webp.json"),
-      JSON.stringify({
-        url: "/uploads/abc-optimized.webp",
-        original: "def.png",
-        kind: "product",
-        crop: { x: 0, y: 0, width: 500, height: 400 },
-      }),
-    );
     const { stdout } = await exec(process.execPath, [
       "build-hostinger.js",
       "--storage",
@@ -63,30 +68,21 @@ test("paquete Hostinger migra contenido y fotos sin copiar credenciales o sesion
       "product-gallery.js",
     ])
       assert.ok(files["public_html/" + name]);
-    for (const name of ["aaa.png", "bbb.png", "ccc.webp"])
+    for (const name of ["bbb.webp", "ccc.webp", "ddd.png", "eee.png"])
       assert.ok(files["atelier-private/storage/uploads/" + name]);
-    for (const name of [
-      "upholstery-preview.js",
-      "upholstery-admin.js",
-      "mask-editor.js",
-      "upholstery-demo.js",
-      "images/demo/armchair-mask.png",
-    ])
-      assert.ok(files["public_html/" + name]);
-    assert.ok(files["public_html/.htaccess"]);
-    assert.ok(files["public_html/image-editor.js"]);
-    assert.ok(files["public_html/crop-geometry.js"]);
     assert.equal(
-      strFromU8(files["atelier-private/storage/originals/def.png"]),
-      "original-privado",
+      strFromU8(files["atelier-private/storage/originals/aaa.png"]),
+      "original-anterior",
     );
-    assert.ok(files["atelier-private/storage/media/abc-optimized.webp.json"]);
     assert.ok(
-      !Object.keys(files).some(
-        (name) =>
-          name.startsWith("public_html/") && name.includes("originals/"),
-      ),
+      files[
+        "atelier-private/storage/backups/content-before-prepared-variants.json"
+      ],
     );
+    assert.ok(!files["public_html/image-editor.js"]);
+    assert.ok(!files["public_html/upholstery-preview.js"]);
+    assert.ok(files["public_html/prepared-variants.js"]);
+    assert.ok(files["public_html/.htaccess"]);
     assert.ok(files["atelier-private/schema.sql"]);
     assert.equal(
       strFromU8(files["atelier-private/storage/uploads/abc-optimized.webp"]),

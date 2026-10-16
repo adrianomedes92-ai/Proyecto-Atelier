@@ -1,8 +1,9 @@
+import { initialContent } from "./data.js";
 import sharp from "sharp";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
@@ -49,7 +50,34 @@ test("admin autenticado, fotos, validación, conflicto y persistencia", async ()
     await exited;
   }
   try {
+    const legacy = initialContent();
+    legacy.products[2].image = "/uploads/abc.webp";
+    legacy.products[2].images = ["/uploads/abc.webp"];
+    legacy.products[2].upholstery = {
+      enabled: true,
+      base: "/uploads/aaa.png",
+      mask: "/uploads/bbb.png",
+    };
+    legacy.materials[0].texture = "/uploads/ccc.webp";
+    await mkdir(join(store, "uploads"));
+    await mkdir(join(store, "originals"));
+    await writeFile(join(store, "uploads", "abc.webp"), "foto-existente");
+    await writeFile(join(store, "originals", "abc.png"), "original-existente");
+    await writeFile(
+      join(store, "content.json"),
+      JSON.stringify({ revision: 4, content: legacy }),
+    );
     let port = await start();
+    const archive = JSON.parse(
+      await readFile(
+        join(store, "backups", "content-before-prepared-variants-4.json"),
+        "utf8",
+      ),
+    );
+    assert.deepEqual(
+      archive.content.products[2].upholstery,
+      legacy.products[2].upholstery,
+    );
     let base = "http://127.0.0.1:" + port;
     const request = (
       path,
@@ -113,54 +141,34 @@ test("admin autenticado, fotos, validación, conflicto y persistencia", async ()
       (await sharp(Buffer.from(await photo.arrayBuffer())).metadata()).format,
       "webp",
     );
-    const info = await (
-      await request(
-        "/api/admin/image-info?url=" + encodeURIComponent(url),
-        "GET",
-        null,
-        cookie,
-      )
-    ).json();
-    const source = await request(info.sourceUrl, "GET", null, cookie);
-    assert.deepEqual(Buffer.from(await source.arrayBuffer()), png);
-    assert.equal((await request(info.sourceUrl)).status, 401);
-    const crop = { x: 10, y: 8, width: 50, height: 40 };
-    const croppedResponse = await request(
-      "/api/admin/recrop",
-      "POST",
-      { url, kind: "product", crop },
-      cookie,
-    );
-    assert.equal(croppedResponse.status, 201);
-    const cropped = await croppedResponse.json();
-    assert.notEqual(cropped.url, url);
-    assert.equal(cropped.original, info.original);
-    assert.deepEqual(cropped.crop, crop);
-    assert.equal(
-      (
-        await sharp(
-          Buffer.from(await (await fetch(base + cropped.url)).arrayBuffer()),
-        ).metadata()
-      ).width,
-      50,
-    );
-    assert.equal(
-      (
-        await request(
-          "/api/admin/recrop",
-          "POST",
-          { url, kind: "product", crop: { ...crop, x: 999 } },
-          cookie,
-        )
-      ).status,
-      400,
-    );
     saved.content.site.heroImages = [url];
     saved.content.site.brandFontSize = 30;
     saved.content.products[0].image = url;
     saved.content.products[0].images = [url];
     saved.content.materials[0].codes = ["001"];
-    saved.content.materials[0].swatches = [{ code: "001", image: url }];
+    saved.content.materials[0].code = "T-01";
+    saved.content.materials[0].swatches = [
+      { code: "001", name: "Azul", active: true, image: url },
+    ];
+    saved.content.products[0].variants = [
+      { material: saved.content.materials[0].name, code: "001", images: [url] },
+    ];
+    for (const route of [
+      "/api/admin/recrop",
+      "/api/admin/image-info",
+      "/api/admin/image-source",
+    ])
+      assert.equal(
+        (
+          await request(
+            route,
+            route.endsWith("recrop") ? "POST" : "GET",
+            route.endsWith("recrop") ? {} : null,
+            cookie,
+          )
+        ).status,
+        404,
+      );
     assert.equal(
       (await request("/api/admin/content", "PUT", saved, cookie)).status,
       200,
@@ -173,6 +181,15 @@ test("admin autenticado, fotos, validación, conflicto y persistencia", async ()
     assert.equal(publicData.content.products.length, 10);
     assert.equal(publicData.content.products[0].name, "Modelo actualizado");
     assert.equal((await fetch(base + url)).status, 200);
+    assert.equal(
+      await (await fetch(base + "/uploads/abc.webp")).text(),
+      "foto-existente",
+    );
+    assert.equal(
+      await readFile(join(store, "originals", "abc.png"), "utf8"),
+      "original-existente",
+    );
+    assert.equal(publicData.content.products[0].variants[0].code, "001");
     const invalid = structuredClone(publicData);
     invalid.content.site.heroImage = "javascript:alert(1)";
     assert.equal(

@@ -91,9 +91,9 @@ Después de entrar al admin correctamente, eliminá **public_html/setup.php** y 
 
 ## Datos y copias de seguridad
 
-MySQL guarda productos, materiales, ajustes de la web y el acceso al admin en tablas `atelier_*`. Las actualizaciones del contenido son transaccionales y controlan la revisión para impedir sobrescribir otra sesión. Las imágenes quedan en **toda atelier-private/storage** y se sirven por la API, sin ejecutar archivos subidos.
+MySQL guarda productos, materiales, ajustes de la web y el acceso al admin en tablas `atelier_*`. Las actualizaciones del contenido son transaccionales y controlan la revisión para impedir sobrescribir otra sesión. Las imágenes quedan en **atelier-private/storage/uploads** y se sirven por la API, sin ejecutar archivos subidos.
 
-Respaldá **la base desde phpMyAdmin** y **toda atelier-private/storage**. Guardá también la configuración privada de forma segura. El JSON de Respaldo del admin sigue sirviendo para exportar/importar contenido, pero no incluye los archivos de las fotos.
+Respaldá **la base desde phpMyAdmin** y **atelier-private/storage/uploads**. Guardá también la configuración privada de forma segura. El JSON de Respaldo del admin sigue sirviendo para exportar/importar contenido, pero no incluye los archivos de las fotos.
 
 Después de la primera publicación, los cambios hechos en Hostinger y en localhost son independientes. Para actualizar el código, respaldá primero la base y los archivos; reemplazá los archivos del programa pero **preservá config.php y toda storage**. No vuelvas a copiar fotos/semilla de un paquete antiguo sobre el contenido nuevo, ni ejecutes el instalador de nuevo.
 
@@ -122,20 +122,22 @@ npm run test:php
 
 Las pruebas crean una base y una configuración temporales con contraseñas aleatorias y limpian sus contenedores y archivos al terminar. Verifican instalación protegida, autenticación, límites de intentos, guardado, conflictos, persistencia y WebP con GD e Imagick. No usan la cuenta Hostinger. La comprobación opcional de navegador usa `ATELIER_BROWSER_CHECK=1`, con Playwright y Chromium disponibles (`CHROMIUM_PATH` permite indicar el ejecutable).
 
-## Actualizar al editor de recorte
+## Actualización: fotos preparadas por tela y color
 
-Conservá `config.php` y **toda `storage`** al actualizar los archivos del programa. No vuelvas a instalar ni borres la base. El servidor crea la tabla adicional `atelier_media` cuando se usa la herramienta por primera vez; si el usuario MySQL no tiene permiso para crear tablas, importá solo la sentencia `CREATE TABLE IF NOT EXISTS atelier_media ...` de `schema.sql` desde phpMyAdmin. No hace falta ejecutar de nuevo `/setup.php`.
+Esta versión retira los editores de recorte y máscaras. Las fotos se preparan externamente y se cargan desde el administrador; se mantienen la optimización de carga y las galerías existentes. No hay recoloreado, máscaras ni generación de imágenes en la web. Las variantes y sus rutas se guardan en las fichas JSON actuales de `atelier_products` y `atelier_materials`; **no hay tablas nuevas ni que reinstalar la base**.
 
-Los originales nuevos se guardan de forma privada en `storage/originals`, los recortes en la tabla `atelier_media` y su copia portable en `storage/media`, y las versiones visibles en `storage/uploads`. **Las tres carpetas y la base forman parte del respaldo.** El paquete generado desde Node incluye originales y metadatos de las fotos que usa el catálogo; PHP importa esos metadatos a MySQL al volver a editar una foto. No publiques las carpetas privadas.
+Después de actualizar conservando `config.php` y **toda** `storage`, entrá en **Telas y colores** y cargá nombre/código de tela, variantes con nombre/código de color, muestra y estado. En **Productos → Imágenes por tela y color**, asociá cada código a su mueble y subí las fotos preparadas. Se pueden ordenar, quitar y reemplazar. **Guardar** publica los cambios. Solo las variantes activas con muestra y fotos para ese modelo aparecen en la personalización. La selección y los códigos se incluyen en WhatsApp. Consultá el flujo completo en README.md.
 
-Las fotos anteriores siguen visibles y se pueden reencuadrar desde su versión disponible, con una advertencia. Las nuevas permiten volver al original sin recargar el archivo. Cada edición genera otra versión y no afecta la foto publicada hasta guardar el contenido del panel.
+Se conservan las fotos publicadas y los archivos privados anteriores. Las fichas con campos del piloto por máscaras se respaldan automáticamente en `storage/backups` antes de normalizarlas al guardar. El paquete conserva los archivos subidos, originales, metadatos y respaldos; tratá el ZIP como un respaldo privado. La versión nueva no intenta deshacer recortes sobre fotos existentes.
 
-## Prueba de tapizados, telas y colores
+Para retirar la tabla exclusiva del recortador de una base existente, **después de actualizar el código**, ejecutá desde la carpeta del dominio:
 
-Esta actualización reutiliza las tablas y fichas JSON existentes: **no requiere reinstalar, importar tablas ni borrar la base**. Actualizá los archivos públicos y privados del paquete, conservando `atelier-private/config.php`, toda la carpeta `storage` y los datos de MySQL. Las imágenes de demostración están en `public_html/images/demo`; conservá esa carpeta si usás el piloto. El empaquetador incluye las bases, máscaras y texturas referenciadas, además de sus originales privados.
+```bash
+php atelier-private/retire-image-editor.php
+```
 
-En el admin, **Productos → Cargar prueba de tapizados** crea un sillón de demostración oculto y una tela con tres colores sintéticos. Podés revisarlo con el selector **Variante para revisar** dentro de su ficha antes de publicarlo. La foto generada y las muestras de prueba no representan productos disponibles. No se activa automáticamente en otros modelos.
+Es un script **solo para terminal**, ubicado fuera de `public_html`. Primero guarda y verifica un archivo privado `storage/backups/retired-image-editor-....json` con todas las filas de `atelier_media` y las fichas actuales. Solo entonces elimina esa tabla. No borra archivos, productos, telas, usuarios ni ninguna otra tabla. Se puede repetir: si ya no existe, no cambia nada. Se verificó contra MariaDB con datos anteriores. La web no necesita esta tabla; si tu plan no ofrece terminal, o el usuario no tiene permiso DROP, podés completar la limpieza posteriormente con asistencia de Hostinger, preservando primero ese respaldo. No ejecutes el instalador ni un borrado general de la base.
 
-Para un sillón real, cargá primero las telas (nombre, código, textura) y sus variantes (nombre/código de color y muestra). Luego cargá una base en su ficha y usá **Crear o editar máscara** para pintar solo tela, o importá un PNG de las mismas dimensiones. La base y la máscara publicada son PNG sin pérdida; las muestras/texturas siguen usando WebP. Activá la vista previa después de revisar las variantes y presioná **Guardar**. Cambiar la base desactiva la vista y retira la máscara del borrador para evitar errores de alineación. Los archivos originales anteriores permanecen almacenados.
+Si copiás archivos encima de la versión anterior, quitá estos scripts públicos obsoletos: `image-editor.js`, `crop-geometry.js`, `mask-editor.js`, `upholstery-preview.js`, `upholstery-admin.js`, `upholstery-demo.js`. El nuevo paquete ya no los contiene. **No borres `images/`, `storage/uploads`, `storage/originals`, `storage/media` ni los respaldos**, porque pueden contener imágenes y datos existentes. Las rutas API del recortador ya no están disponibles.
 
-El resultado conserva la luminosidad y sombras de la foto y protege lo que queda fuera de la máscara. Es orientativo, no un render 3D con perspectiva del tejido; la página muestra la aclaración sobre color/pantalla y recomienda confirmar con una muestra física. La consulta de WhatsApp incluye tela, código y color. Consultá el flujo y las limitaciones en la sección “Prueba de telas y colores por máscara” del README.
+Si solo contás con **phpMyAdmin**, podés retirar la misma tabla desde allí: seleccioná únicamente `atelier_media`, usá **Exportar → SQL** y conservá la descarga; después, en **Operaciones**, eliminá únicamente esa tabla. Antes verificá también el respaldo habitual de la base y de `storage`. No selecciones la base completa ni otras tablas. Esta limpieza no es necesaria para usar las nuevas galerías.
