@@ -10,14 +10,15 @@ export let materials = [
   ...["PANNE", "MECHA", "ZEPPELIN", "DONN", "BOUCLÉ"].map((name) => ({
     name,
     type: "Tela",
-    codes: [],
+    colorCodes: [],
   })),
   ...["TITANIUM", "TALAMPAYA"].map((name) => ({
     name,
     type: "Ecocuero",
-    codes: [],
+    colorCodes: [],
   })),
 ];
+export let colors = [];
 export let products = [
   ["clapton-individual", "Clapton Individual", "Individuales", "65 × 90 cm"],
   ["baby-clapton", "Baby Clapton", "Individuales", "50 × 50 cm", [50, 100]],
@@ -106,18 +107,25 @@ export let site = {
   ],
 };
 export function initialContent() {
-  return structuredClone({ site, contact, materials, products });
+  return structuredClone({
+    catalogVersion: 2,
+    site,
+    contact,
+    materials,
+    colors,
+    products,
+  });
 }
 export async function loadContent() {
   const response = await fetch("/api/content", { cache: "no-store" });
   if (!response.ok)
     throw Error("No se pudo cargar el catálogo. Intentá nuevamente.");
   const data = await response.json();
-  ({ site, contact, materials, products } = data.content);
+  ({ site, contact, materials, colors, products } = data.content);
   return data;
 }
 export function availableVariants(product) {
-  return variantsFor(product, materials);
+  return variantsFor(product, materials, colors);
 }
 export function availableMaterials(product) {
   const variants = availableVariants(product);

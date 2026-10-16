@@ -69,7 +69,7 @@ const { once } = require("node:events");
         console.log(
           "PASS variantes preparadas " +
             (mobile ? "móvil 320 px y gestos" : "escritorio") +
-            ": cargar, ordenar, reemplazar, quitar, publicar, galerías 1/varias, inactivar, renombrar y WhatsApp.",
+            ": catálogo único, casillas en dos telas, galería compartida, zoom, orden/reemplazo, renombrar y WhatsApp.",
         );
       } finally {
         if (child && child.exitCode === null) {

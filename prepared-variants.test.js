@@ -3,90 +3,125 @@ import assert from "node:assert/strict";
 import { validateContent } from "./content-schema.js";
 import { initialContent } from "./data.js";
 import { variantsFor } from "./prepared-variants.js";
-const fixture = () => {
-  const content = initialContent(),
-    m = content.materials[0],
-    p = content.products[0];
-  m.code = "T01";
-  m.codes = ["A", "B", "C"];
-  m.swatches = [
-    { code: "A", name: "Azul", image: "/uploads/abc.webp", active: true },
-    { code: "B", name: "Beige", image: "/uploads/def.webp", active: false },
-    { code: "C", name: "Gris", image: "/uploads/aaa.webp", active: true },
-  ];
-  p.variants = [
-    {
-      material: m.name,
-      code: "A",
-      images: ["/uploads/aaa.webp", "/uploads/bbb.webp"],
-    },
-    { material: m.name, code: "B", images: ["/uploads/ccc.webp"] },
-    { material: m.name, code: "C", images: [] },
-  ];
-  return content;
-};
-test("variantes activas con muestra y galería, asociadas únicamente al mueble y tela/código correctos", () => {
-  const c = validateContent(fixture()),
-    p = c.products[0];
+import { legacyColors } from "./tests/fixtures/legacy-colors.js";
+const fixture = () => validateContent(legacyColors());
+test("deduplica colores y galerías anteriores por código conservando disponibilidad por tela", () => {
+  const old = legacyColors(),
+    c = validateContent(old);
+  assert.equal(c.catalogVersion, 2);
+  assert.equal(c.colors.length, 4);
+  assert.equal(c.colors.filter((c) => c.code === "AZ-01").length, 1);
+  assert.deepEqual(c.materials[0].colorCodes, ["AZ-01", "AR-02"]);
+  assert.deepEqual(c.materials[1].colorCodes, ["AZ-01", "OL-04"]);
+  assert.equal(c.products[0].variants.length, 3);
+  assert.equal(c.products[0].variants[0].material, undefined);
   assert.deepEqual(
-    variantsFor(p, c.materials).map((v) => v.variant.code),
-    ["A"],
+    c.products[0].variants[0].images,
+    old.products[0].variants[0].images,
   );
-  assert.deepEqual(variantsFor(c.products[1], c.materials), []);
-  p.materialNames = ["MECHA"];
-  assert.deepEqual(variantsFor(p, c.materials), []);
-  p.materialNames = [];
-  c.materials[0].swatches[0].image = "";
-  assert.deepEqual(variantsFor(p, c.materials), []);
+  assert.deepEqual(validateContent(c), c);
+  assert.ok(old.materials[0].swatches[0].image);
 });
-test("valida referencias, duplicados y límites manteniendo orden y estado inactivo", () => {
+test("dos telas ofrecen colores diferentes y comparten la misma galería de producto/color sin muestras", () => {
   const c = fixture(),
-    valid = validateContent(c);
-  assert.deepEqual(valid.products[0].variants[0].images, [
+    p = c.products[0],
+    v = variantsFor(p, c.materials, c.colors);
+  assert.deepEqual(
+    v.filter((v) => v.material.name === "PANNE").map((v) => v.variant.code),
+    ["AZ-01", "AR-02"],
+  );
+  assert.deepEqual(
+    v.filter((v) => v.material.name === "MECHA").map((v) => v.variant.code),
+    ["AZ-01", "OL-04"],
+  );
+  const common = v.filter((v) => v.variant.code === "AZ-01");
+  assert.equal(common[0].images, common[1].images);
+  assert.deepEqual(variantsFor(c.products[1], c.materials, c.colors), []);
+  p.materialNames = ["MECHA"];
+  assert.deepEqual(
+    variantsFor(p, c.materials, c.colors).map((v) => v.variant.code),
+    ["AZ-01", "OL-04"],
+  );
+  c.materials[1].colorCodes = [];
+  assert.deepEqual(variantsFor(p, c.materials, c.colors), []);
+});
+test("conflictos de nombres y fotos se preservan y requieren revisión antes de ofrecerse", () => {
+  const old = legacyColors(true),
+    c = validateContent(old),
+    color = c.colors.find((c) => c.code === "AZ-01"),
+    gallery = c.products[0].variants.find((v) => v.code === "AZ-01");
+  assert.deepEqual(color.legacyNames, ["Azul", "Azul marino"]);
+  assert.equal(color.reviewRequired, true);
+  assert.deepEqual(gallery.images, [
     "/uploads/aaa.webp",
     "/uploads/bbb.webp",
+    "/uploads/ddd.webp",
   ]);
-  assert.equal(valid.materials[0].swatches[1].active, false);
-  const p = c.products[0],
-    association = structuredClone(p.variants[0]);
-  for (const bad of [
-    { ...association, code: "X" },
-    { ...association, material: "No existe" },
-    { ...association, images: ["javascript:alert(1)"] },
-    { ...association, images: ["/uploads/aaa.webp", "/uploads/aaa.webp"] },
-    {
-      ...association,
-      images: Array.from({ length: 13 }, (_, i) => `/uploads/${i}.webp`),
-    },
-  ]) {
-    p.variants = [bad];
-    assert.throws(() => validateContent(c), { status: 400 });
-  }
-  p.variants = [association, association];
+  assert.equal(gallery.reviewRequired, true);
+  assert.ok(
+    !variantsFor(c.products[0], c.materials, c.colors).some(
+      (v) => v.variant.code === "AZ-01",
+    ),
+  );
+  color.reviewRequired = false;
+  gallery.reviewRequired = false;
+  assert.equal(
+    variantsFor(c.products[0], c.materials, c.colors).filter(
+      (v) => v.variant.code === "AZ-01",
+    ).length,
+    2,
+  );
+  assert.deepEqual(validateContent(c), c);
+});
+test("la migración conserva galerías de más de doce fotos, sin truncar ni repetir archivos", () => {
+  const old = legacyColors(true);
+  old.products[0].variants[0].images = Array.from(
+    { length: 12 },
+    (_, i) => `/uploads/${i.toString(16)}a.webp`,
+  );
+  old.products[0].variants[1].images = Array.from(
+    { length: 12 },
+    (_, i) => `/uploads/${i.toString(16)}b.webp`,
+  );
+  const c = validateContent(old);
+  assert.equal(c.products[0].variants[0].images.length, 24);
+  assert.equal(c.products[0].variants[0].reviewRequired, true);
+});
+test("rechaza colores duplicados y referencias inexistentes de telas o galerías", () => {
+  let c = fixture();
+  c.colors.push(c.colors[0]);
+  assert.throws(() => validateContent(c), { status: 400 });
+  c = fixture();
+  c.materials[0].colorCodes.push("NO-EXISTE");
+  assert.throws(() => validateContent(c), { status: 400 });
+  c = fixture();
+  c.materials[0].colorCodes.push("AZ-01");
+  assert.throws(() => validateContent(c), { status: 400 });
+  c = fixture();
+  c.products[0].variants.push(c.products[0].variants[0]);
+  assert.throws(() => validateContent(c), { status: 400 });
+  c = fixture();
+  c.products[0].variants[0].code = "NO-EXISTE";
+  assert.throws(() => validateContent(c), { status: 400 });
+  c = fixture();
+  c.products[0].variants[0].images = ["javascript:alert(1)"];
+  assert.throws(() => validateContent(c), { status: 400 });
+  c = fixture();
+  c.colors[0].reviewRequired = "false";
   assert.throws(() => validateContent(c), { status: 400 });
 });
-test("las fotos y datos comerciales anteriores se conservan, sin estructuras activas de máscaras", () => {
-  const c = fixture();
+test("fotos y fichas antiguas se conservan al migrar sin introducir máscaras o texturas", () => {
+  const c = legacyColors();
   c.products[0].image = "/uploads/abc-optimized.webp";
   c.products[0].images = [c.products[0].image];
   c.products[0].upholstery = {
-    enabled: true,
-    base: "/uploads/ddd.png",
-    mask: "/uploads/eee.png",
+    base: "/uploads/aaa.png",
+    mask: "/uploads/bbb.png",
   };
-  c.materials[0].texture = "/uploads/fff.webp";
   const v = validateContent(c);
   assert.equal(v.products[0].image, c.products[0].image);
   assert.deepEqual(v.products[0].images, c.products[0].images);
   assert.equal(v.products[0].upholstery, undefined);
-  assert.equal(v.materials[0].texture, undefined);
-  assert.equal(v.materials[0].code, "T01");
-  const legacy = validateContent(initialContent());
-  assert.deepEqual(legacy.products[0].variants, []);
-});
-
-test("el estado de una variante debe ser booleano, sin confundir texto con inactividad", () => {
-  const c = fixture();
-  c.materials[0].swatches[0].active = "false";
-  assert.throws(() => validateContent(c), { status: 400 });
+  assert.equal(v.materials[0].swatches, undefined);
+  assert.deepEqual(validateContent(initialContent()).colors, []);
 });

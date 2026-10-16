@@ -1,29 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { products, materials } from "./data.js";
+import { products, materials, colors } from "./data.js";
 import { validate, message, whatsappLink } from "./quote.js";
 const fabric = {
   name: "Prueba de códigos",
   type: "Tela",
   code: "T-104",
-  codes: ["C-08", "C-09", "C-10"],
-  swatches: [
-    {
-      code: "C-08",
-      name: "Azul petróleo",
-      image: "/uploads/abc.webp",
-      active: true,
-    },
-    { code: "C-09", name: "Verde", image: "/uploads/def.webp", active: false },
-    { code: "C-10", name: "Rojo", image: "/uploads/abc.webp", active: true },
-  ],
+  colorCodes: ["C-08", "C-10"],
 };
 materials.push(fabric);
+colors.push(
+  { code: "C-08", name: "Azul petróleo" },
+  { code: "C-09", name: "Verde" },
+  { code: "C-10", name: "Rojo" },
+);
 const model = (id = "clapton-dos") => ({
   ...products.find((p) => p.id === id),
-  variants: [
-    { material: fabric.name, code: "C-08", images: ["/uploads/aaa.webp"] },
-  ],
+  variants: [{ code: "C-08", images: ["/uploads/aaa.webp"] }],
 });
 const selection = {
   material: fabric.name,

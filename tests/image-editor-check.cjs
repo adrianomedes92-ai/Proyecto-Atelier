@@ -243,27 +243,15 @@ const { once } = require("node:events");
       await page.locator("#save").click();
       await page.getByText("Todos los cambios están guardados.").waitFor();
       await page.locator("[data-tab=materials]").click();
-      if (!(await page.locator("[data-field=variant-code-0]").count())) {
-        await page.locator("#add-code").click();
-        await page.locator("[data-field=variant-code-0]").fill("001");
-      }
-      await page.locator('[data-swatch="0"]').setInputFiles(fixture);
-      await page.locator(".image-editor").waitFor();
       assert.equal(
-        await page
-          .locator("[data-crop-canvas]")
-          .evaluate((c) => c.width / c.height),
-        1,
+        await page.locator("[data-swatch],input[type=file]").count(),
+        0,
       );
-      await page.locator("[data-crop-confirm]").click();
-      await page.locator("[data-recrop][data-crop-kind=swatch]").waitFor();
-      await page.locator("#save").click();
-      await page.getByText("Todos los cambios están guardados.").waitFor();
       assert.deepEqual(errors, []);
       console.log(
         "PASS editor " +
           (mobile ? "móvil 320 px y arrastre táctil" : "escritorio y mouse") +
-          ": cargar, zoom, mover, preview fiel, original privado, guardar/publicar, reeditar, restablecer, cancelar/Escape y marcos producto/portada/tela.",
+          ": cargar, zoom, mover, preview fiel, original privado, guardar/publicar, reeditar, restablecer, cancelar/Escape y marcos producto/portada.",
       );
       await context.close();
     }

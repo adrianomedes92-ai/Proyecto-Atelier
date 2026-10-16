@@ -110,6 +110,12 @@ $("#logout").onclick = async () => {
 };
 $("#save").onclick = async () => {
   if (busy) return;
+  const invalid = $("#editor input:invalid");
+  if (invalid) {
+    invalid.reportValidity();
+    status("Revisá los campos marcados antes de guardar.", true);
+    return;
+  }
   lock(true);
   try {
     const data = await api("/api/admin/content", {
@@ -177,7 +183,7 @@ function renderProducts() {
             )
             .join(
               "",
-            )}</div><h3>Familias habilitadas para este modelo</h3><p class="hint">Sin marcar ninguna se permiten todas las familias; el cliente solo verá variantes activas con muestra y fotos asociadas a este mueble. Marcá solo las confirmadas para el producto.</p><div class="checks">${content.materials.map((m) => `<label class="check"><input type="checkbox" data-material="${esc(m.name)}" ${p.materialNames.includes(m.name) ? "checked" : ""}>${esc(m.name)}</label>`).join("")}</div>${textarea("Variantes confirmadas de patas (una por línea)", "legs", p.legs.join("\n"))}<h3>Fotografías</h3>${photos(p.images, "product")}</section>`
+            )}</div><h3>Familias habilitadas para este modelo</h3><p class="hint">Sin marcar ninguna se permiten todas las familias; el cliente solo verá colores habilitados para la tela con fotos asociadas a este mueble. Marcá solo las confirmadas para el producto.</p><div class="checks">${content.materials.map((m) => `<label class="check"><input type="checkbox" data-material="${esc(m.name)}" ${p.materialNames.includes(m.name) ? "checked" : ""}>${esc(m.name)}</label>`).join("")}</div>${textarea("Variantes confirmadas de patas (una por línea)", "legs", p.legs.join("\n"))}<h3>Fotografías</h3>${photos(p.images, "product")}</section>`
         : '<section class="editor-card"><h2>Todavía no hay productos</h2><p>Agregá un modelo para comenzar.</p></section>'
     }</div>`;
   $("#new-product").onclick = () => {
@@ -264,7 +270,8 @@ function renderProducts() {
         }),
     );
   bindImages(p);
-  mountVariantAdmin($("#editor .editor-card"), p, content.materials, {
+  mountVariantAdmin($("#editor .editor-card"), p, content.colors, {
+    materials: content.materials,
     esc,
     upload,
     lock,
@@ -590,10 +597,6 @@ function bindRecrops() {
             if (scope === "hero") {
               content.site.heroImages[index] = result.url;
               content.site.heroImage = content.site.heroImages[0] || "";
-            } else if (scope === "material") {
-              content.materials[materialIndex].swatches.find(
-                (s) => s.code === content.materials[materialIndex].codes[index],
-              ).image = result.url;
             } else {
               const p = content.products.find((p) => p.id === productId);
               if (scope === "variant")

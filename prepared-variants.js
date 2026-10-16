@@ -1,23 +1,26 @@
-// Una asociación pertenece al mueble y se identifica por tela + código.
-export function variantsFor(product, materials) {
-  return (product.variants || []).flatMap((association) => {
-    const material = materials.find((m) => m.name === association.material);
-    const variant = material?.swatches?.find(
-      (s) => s.code === association.code,
-    );
+// La galería pertenece al mueble + código. La tela solo habilita colores.
+export function variantsFor(product, materials, colors) {
+  const result = [];
+  for (const material of materials) {
     if (
-      !material ||
-      !material.codes.includes(association.code) ||
-      !variant ||
-      variant.active === false ||
-      !variant.image ||
-      !association.images?.length ||
-      (product.materialNames?.length &&
-        !product.materialNames.includes(material.name))
+      product.materialNames?.length &&
+      !product.materialNames.includes(material.name)
     )
-      return [];
-    return [{ material, variant, images: association.images }];
-  });
+      continue;
+    for (const code of material.colorCodes || []) {
+      const variant = colors.find((c) => c.code === code),
+        gallery = product.variants?.find((v) => v.code === code);
+      if (
+        !variant ||
+        variant.reviewRequired ||
+        !gallery?.images.length ||
+        gallery.reviewRequired
+      )
+        continue;
+      result.push({ material, variant, images: gallery.images });
+    }
+  }
+  return result;
 }
 export function mountVariantGallery(container, images, label) {
   container.replaceChildren();

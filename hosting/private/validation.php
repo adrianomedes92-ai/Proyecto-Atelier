@@ -22,8 +22,9 @@ function image_value($value): string {
     return $path;
 }
 function unique_list(array $items): bool { return count(array_unique($items, SORT_STRING)) === count($items); }
+require_once __DIR__.'/color-migration.php';
 function validate_content($input): array {
-    $value = object_value($input, 'Contenido'); $s = object_value($value['site'] ?? null, 'Marca'); $site = [];
+    $value = migrate_color_catalog(object_value($input, 'Contenido')); $s = object_value($value['site'] ?? null, 'Marca'); $site = [];
     foreach (['name','heroTitle','heroDescription','tagline','shipping','collectionTitle','collectionDescription','contactTitle','contactDescription','footer','heroButton','collectionEyebrow','contactEyebrow'] as $key) $site[$key] = text_value($s[$key] ?? null, $key);
     if ($site['name'] === '' || $site['heroTitle'] === '') fail(400, 'Completá el nombre y el título de inicio.');
     $size = $s['brandFontSize'] ?? 22;
@@ -38,20 +39,20 @@ function validate_content($input): array {
     $c = object_value($value['contact'] ?? null, 'Contacto');
     $contact = ['display'=>text_value($c['display'] ?? null,'Teléfono',100),'whatsappInternational'=>text_value($c['whatsappInternational'] ?? null,'WhatsApp',20),'people'=>string_list($c['people'] ?? null,'Contactos')];
     if ($contact['whatsappInternational'] !== '' && !preg_match('/^\d{10,15}$/D', $contact['whatsappInternational'])) fail(400, 'WhatsApp: usá entre 10 y 15 dígitos sin + ni espacios.');
-    $materials = [];
-    foreach (list_value($value['materials'] ?? null,'Materiales',100) as $m) {
-        $m = object_value($m,'Material'); $name=text_value($m['name'] ?? null,'Familia',100); $type=text_value($m['type'] ?? null,'Tipo',100);
-        if ($name === '' || $type === '') fail(400,'Completá nombre y tipo de cada familia.');
-        $codes = string_list($m['codes'] ?? null,'Códigos');
-        if (!unique_list($codes) || in_array('',$codes,true)) fail(400,'Los códigos deben ser únicos y no estar vacíos.');
-        $swatches = [];
-        foreach (list_value($m['swatches'] ?? [],'Muestras') as $swatch) {
-            $swatch=object_value($swatch,'Muestra'); if(array_key_exists('active',$swatch)&&!is_bool($swatch['active']))fail(400,'El estado de la variante debe ser activo o inactivo.'); $code=text_value($swatch['code'] ?? null,'Código',200);
-            if (!in_array($code,$codes,true)) fail(400,'La muestra debe corresponder a un código de su familia.');
-            $swatches[]=['code'=>$code,'image'=>image_value($swatch['image'] ?? ''),'name'=>text_value($swatch['name'] ?? '','Nombre del color',100),'active'=>($swatch['active']??true)!==false];
-        }
-        if (!unique_list(array_column($swatches,'code'))) fail(400,'Cada muestra debe tener un código único.');
-        $materials[]=['code'=>text_value($m['code'] ?? '','Código de tela',100),'name'=>$name,'type'=>$type,'description'=>text_value($m['description'] ?? '','Descripción de material'),'codes'=>$codes,'swatches'=>$swatches];
+    $colors=[];
+    foreach(list_value($value['colors']??null,'Catálogo de colores',20000) as $c){
+        $c=object_value($c,'Color');$code=text_value($c['code']??null,'Código de color',200);$name=text_value($c['name']??null,'Nombre de color',200);
+        if($code===''||$name==='')fail(400,'Completá el nombre y código de cada color.');
+        if(array_key_exists('reviewRequired',$c)&&!is_bool($c['reviewRequired']))fail(400,'Estado de revisión inválido.');
+        $colors[]=['code'=>$code,'name'=>$name,'reviewRequired'=>($c['reviewRequired']??false)===true,'legacyNames'=>string_list($c['legacyNames']??[],'Nombres anteriores')];
+    }
+    $colorKeys=array_column($colors,'code');if(!unique_list($colorKeys))fail(400,'Cada código de color debe cargarse una sola vez en el catálogo.');
+    $materials=[];
+    foreach(list_value($value['materials']??null,'Materiales',100) as $m){
+        $m=object_value($m,'Tipo de tela');$name=text_value($m['name']??null,'Tela',100);$type=text_value($m['type']??null,'Tipo',100);$colorCodes=string_list($m['colorCodes']??[],'Colores habilitados');
+        if($name===''||$type==='')fail(400,'Completá nombre y tipo de cada tela.');
+        if(!unique_list($colorCodes)||array_diff($colorCodes,$colorKeys))fail(400,'La tela debe habilitar colores únicos existentes en el catálogo.');
+        $materials[]=['name'=>$name,'type'=>$type,'code'=>text_value($m['code']??'','Código de tela',100),'description'=>text_value($m['description']??'','Descripción'),'colorCodes'=>$colorCodes];
     }
     $names=array_column($materials,'name');
     if (!unique_list($names)) fail(400,'Los nombres de familias deben ser únicos.');
@@ -68,29 +69,28 @@ function validate_content($input): array {
         if (array_diff($allowed,$names)) fail(400,"$name: hay familias que ya no existen.");
         if (in_array('material',$options,true) && !$materials) fail(400,"$name: cargá al menos una familia de tapizado.");
         $images=array_values(array_filter(array_map(__NAMESPACE__.'\\image_value',list_value($p['images'] ?? [],'Fotos',12)),fn($path)=>$path!==''));
-        $products[]=['id'=>$id,'name'=>$name,'category'=>$category,'reference'=>$reference,'description'=>text_value($p['description'] ?? '','Descripción'),'structure'=>text_value($p['structure'] ?? '','Estructura',200),'visible'=>($p['visible'] ?? true)!==false,'range'=>$range,'options'=>$options,'materialNames'=>$allowed,'legs'=>string_list($p['legs'] ?? [],'Patas'),'variants'=>variant_values($p['variants'] ?? [],$materials),'image'=>image_value($p['image'] ?? ''),'images'=>$images];
+        $products[]=['id'=>$id,'name'=>$name,'category'=>$category,'reference'=>$reference,'description'=>text_value($p['description'] ?? '','Descripción'),'structure'=>text_value($p['structure'] ?? '','Estructura',200),'visible'=>($p['visible'] ?? true)!==false,'range'=>$range,'options'=>$options,'materialNames'=>$allowed,'legs'=>string_list($p['legs'] ?? [],'Patas'),'variants'=>variant_values($p['variants'] ?? [],$colors),'image'=>image_value($p['image'] ?? ''),'images'=>$images];
     }
     if (!unique_list(array_column($products,'id'))) fail(400,'Los IDs de productos deben ser únicos.');
-    return ['site'=>$site,'contact'=>$contact,'materials'=>$materials,'products'=>$products];
+    return ['catalogVersion'=>2,'site'=>$site,'contact'=>$contact,'colors'=>$colors,'materials'=>$materials,'products'=>$products];
 }
 
 function content_image_paths(array $content): array {
     $paths=$content['site']['heroImages'];
     foreach ($content['products'] as $product) $paths=array_merge($paths,[$product['image']],$product['images'],array_merge([], ...array_column($product['variants'],'images')));
-    foreach ($content['materials'] as $material) { foreach ($material['swatches'] as $swatch) $paths[]=$swatch['image']; }
     return array_values(array_unique(array_filter($paths,fn($path)=>$path!=='')));
 }
 
-function variant_values($value,array $materials): array {
+function variant_values($value,array $colors): array {
     $result=[];$keys=[];
-    foreach(list_value($value,'Variantes por mueble',200) as $item){
-        $v=object_value($item,'Variante por mueble');$material=text_value($v['material']??null,'Tela asociada',100);$code=text_value($v['code']??null,'Código de variante',200);
-        $found=false;foreach($materials as $m)if($m['name']===$material && in_array($code,$m['codes'],true))$found=true;
-        if(!$found)fail(400,'La variante asociada debe corresponder a una tela y código existentes.');
-        $images=array_map(__NAMESPACE__.'\\image_value',list_value($v['images']??[],'Fotos de variante',12));
-        if(in_array('',$images,true)||!unique_list($images))fail(400,'Las fotos de una variante deben ser válidas y no estar repetidas.');
-        $key=encode([$material,$code]);if(in_array($key,$keys,true))fail(400,'Cada mueble admite una sola asociación por tela y código.');$keys[]=$key;
-        $result[]=['material'=>$material,'code'=>$code,'images'=>$images];
+    foreach(list_value($value,'Colores por mueble',20000) as $item){
+        $v=object_value($item,'Galería de color');$code=text_value($v['code']??null,'Código de color',200);
+        if(!in_array($code,array_column($colors,'code'),true))fail(400,'La galería debe corresponder a un código del catálogo de colores.');
+        $images=array_map(__NAMESPACE__.'\\image_value',list_value($v['images']??[],'Fotos de color',1200));
+        if(in_array('',$images,true)||!unique_list($images))fail(400,'Las fotos de una galería deben ser válidas y no estar repetidas.');
+        if(in_array($code,$keys,true))fail(400,'Cada mueble admite una sola galería por código de color.');$keys[]=$code;
+        if(array_key_exists('reviewRequired',$v)&&!is_bool($v['reviewRequired']))fail(400,'Estado de revisión de galería inválido.');
+        $result[]=['code'=>$code,'images'=>$images,'reviewRequired'=>($v['reviewRequired']??false)===true];
     }
     return $result;
 }

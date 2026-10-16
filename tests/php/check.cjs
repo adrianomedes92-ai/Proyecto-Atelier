@@ -39,6 +39,7 @@ const run = promisify(execFile),
       "data.js",
       "quote.js",
       "content-schema.js",
+      "color-catalog-migration.js",
       "image-urls.js",
       "product-gallery.js",
       "hero-slideshow.js",
@@ -204,21 +205,66 @@ const run = promisify(execFile),
     const cookie = login.headers.get("set-cookie").split(";")[0];
     assert.match(login.headers.get("set-cookie"), /httponly/i);
     assert.match(login.headers.get("set-cookie"), /SameSite=Strict/i);
-    // Simular una instalación anterior con metadatos y máscara, sin tocar los archivos.
+    // Comprobar la misma migración en PHP y Node, incluyendo conflictos y galerías largas.
+    const { legacyColors } = await import(
+      join(root, "tests/fixtures/legacy-colors.js")
+    );
+    const { validateContent } = await import(join(root, "content-schema.js"));
+    for (const conflict of [false, true]) {
+      const legacy = legacyColors(conflict);
+      if (conflict) {
+        legacy.products[0].variants[0].images = Array.from(
+          { length: 12 },
+          (_, i) => "/uploads/" + i.toString(16) + "a.webp",
+        );
+        legacy.products[0].variants[1].images = Array.from(
+          { length: 12 },
+          (_, i) => "/uploads/" + i.toString(16) + "b.webp",
+        );
+      }
+      await writeFile(
+        join(priv, "migration-fixture.json"),
+        JSON.stringify(legacy),
+      );
+      const checked = await docker([
+        "exec",
+        phpName,
+        "php",
+        "-r",
+        `require '${containerRoot}/atelier-private/bootstrap.php'; $value=json_decode(file_get_contents('${containerRoot}/atelier-private/migration-fixture.json'),true);echo Atelier\\encode(Atelier\\validate_content($value));`,
+      ]);
+      assert.deepEqual(JSON.parse(checked.stdout), validateContent(legacy));
+    }
+    // Simular una base instalada antes del catálogo global, preservando las fichas originales.
+    const legacy = legacyColors();
+    legacy.products[2].variants = legacy.products[0].variants;
+    legacy.products[0].variants = [];
+    legacy.products[2].upholstery = {
+      enabled: true,
+      base: "/uploads/aaa.png",
+      mask: "/uploads/bbb.png",
+    };
+    await writeFile(join(priv, "legacy-catalog.json"), JSON.stringify(legacy));
+    await writeFile(
+      join(priv, "seed-legacy.php"),
+      `<?php require __DIR__.'/bootstrap.php';$value=json_decode(file_get_contents(__DIR__.'/legacy-catalog.json'),true);$pdo=Atelier\\db();$pdo->exec("DELETE FROM atelier_settings WHERE setting_key IN ('colors','catalogVersion')");foreach(['products'=>'id','materials'=>'name'] as $type=>$key){$q=$pdo->prepare("UPDATE atelier_$type SET payload=? WHERE $key=?");foreach($value[$type] as $item)$q->execute([Atelier\\encode($item),$item[$key]]);}`,
+    );
     await docker([
       "exec",
-      dbName,
-      "mariadb",
-      "-uatelier",
-      "-p" + password,
-      "atelier",
-      "-e",
-      `UPDATE atelier_products SET payload=JSON_SET(payload,'$.upholstery',JSON_OBJECT('enabled',true,'base','/uploads/aaa.png','mask','/uploads/bbb.png')) WHERE id='clapton-dos';`,
+      phpName,
+      "php",
+      containerRoot + "/atelier-private/seed-legacy.php",
     ]);
     const saved = await (
       await request("/api/admin/content", "GET", null, cookie)
     ).json();
     assert.equal(saved.content.products.length, 11);
+    assert.equal(saved.content.colors.length, 4);
+    assert.equal(saved.content.products[2].variants.length, 3);
+    assert.equal(
+      saved.content.colors.filter((c) => c.code === "AZ-01").length,
+      1,
+    );
     const image = await sharp({
       create: { width: 2400, height: 3200, channels: 3, background: "#acbdcd" },
     })
@@ -362,14 +408,14 @@ const run = promisify(execFile),
     saved.content.products[0].image = uploaded.url;
     saved.content.products[0].images = [uploaded.url];
     saved.content.materials[0].code = "PHP-T01";
-    saved.content.materials[0].codes = ["PHP-A", "PHP-B"];
-    saved.content.materials[0].swatches = [
-      { code: "PHP-A", name: "Azul", image: uploaded.url, active: true },
-      { code: "PHP-B", name: "Arena", image: uploaded.url, active: false },
-    ];
+    saved.content.colors.push(
+      { code: "PHP-A", name: "Azul PHP" },
+      { code: "PHP-B", name: "Arena PHP" },
+    );
+    saved.content.materials[0].colorCodes = ["PHP-A"];
     saved.content.products[2].variants = [
-      { material: "PANNE", code: "PHP-A", images: [uploaded.url] },
-      { material: "PANNE", code: "PHP-B", images: [uploaded.url] },
+      { code: "PHP-A", images: [uploaded.url] },
+      { code: "PHP-B", images: [uploaded.url] },
     ];
     saved.content.site.heroImages = [uploaded.url];
     saved.content.site.brandFontSize = 30;
@@ -395,9 +441,7 @@ const run = promisify(execFile),
       join(priv, "storage", "backups"),
     );
     assert.ok(
-      backups.some((name) =>
-        name.startsWith("content-before-prepared-variants"),
-      ),
+      backups.some((name) => name.startsWith("content-before-global-colors")),
     );
     const archived = JSON.parse(
       await require("node:fs/promises").readFile(
@@ -544,7 +588,7 @@ const run = promisify(execFile),
         await require("../prepared-variants-flow.cjs")(page, base, root, false);
         assert.deepEqual(errors, []);
         console.log(
-          "PASS variantes PHP/MySQL: carga, orden, reemplazo, filtros, persistencia y WhatsApp, con encuadre y sin composición automática.",
+          "PASS variantes PHP/MySQL: catálogo único, casillas en dos telas, galerías por producto/color, migración sin pérdida, encuadre y WhatsApp.",
         );
         console.log(
           "PASS navegador móvil contra PHP/MySQL: admin, guardar contenido, portada, catálogo y configurador.",

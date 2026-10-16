@@ -47,6 +47,7 @@ for (const name of ["api.php", "setup.php", ".htaccess", ".user.ini"])
 for (const name of [
   "bootstrap.php",
   "validation.php",
+  "color-migration.php",
   "media.php",
   "schema.sql",
   "config.example.php",
@@ -63,6 +64,7 @@ for (const name of [
   "admin.js",
   "admin.css",
   "content-schema.js",
+  "color-catalog-migration.js",
   "image-urls.js",
   "product-gallery.js",
   "hero-slideshow.js",
@@ -84,9 +86,6 @@ const referenced = new Set(
       product.image,
       ...product.images,
       ...product.variants.flatMap((variant) => variant.images),
-    ]),
-    ...content.materials.flatMap((material) => [
-      ...(material.swatches || []).map((swatch) => swatch.image),
     ]),
   ].filter(Boolean),
 );

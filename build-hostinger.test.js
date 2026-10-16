@@ -14,6 +14,8 @@ test("paquete Hostinger migra contenido y fotos sin copiar credenciales o sesion
   try {
     await mkdir(join(source, "uploads"));
     const content = initialContent();
+    delete content.colors;
+    delete content.catalogVersion;
     content.products[0].name = "Catálogo migrado";
     content.products[0].description = "/uploads/../../admin.json";
     content.products[0].image = "/uploads/abc-optimized.webp";

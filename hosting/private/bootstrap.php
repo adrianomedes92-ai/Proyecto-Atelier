@@ -73,19 +73,19 @@ function login(string $password): void {
         start_session();session_regenerate_id(true);$_SESSION=['user_id'=>(int)$user['id'],'expires'=>time()+28800];
     } catch (\Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack();throw $e; }
 }
-function read_content(bool $public=false): array {
+function read_content(bool $public=false,bool $normalize=true): array {
     $pdo=db();$pdo->beginTransaction();
     try {
         $revision=$pdo->query('SELECT revision FROM atelier_state WHERE id=1 LOCK IN SHARE MODE')->fetchColumn();
         $settings=[];foreach ($pdo->query('SELECT setting_key,payload FROM atelier_settings') as $row) $settings[$row['setting_key']]=json_decode($row['payload'],true,512,JSON_THROW_ON_ERROR);
         if (!isset($settings['site'],$settings['contact'])) fail(503,'La base todavía no tiene contenido. Completá la instalación.');
-        $content=['site'=>$settings['site'],'contact'=>$settings['contact'],'products'=>[],'materials'=>[]];
+        $content=['site'=>$settings['site'],'contact'=>$settings['contact'],'products'=>[],'materials'=>[]];if(array_key_exists('colors',$settings))$content['colors']=$settings['colors'];if(isset($settings['catalogVersion']))$content['catalogVersion']=$settings['catalogVersion'];
         foreach (['products','materials'] as $type) foreach ($pdo->query("SELECT payload FROM atelier_$type ORDER BY sort_order") as $row) { $item=json_decode($row['payload'],true,512,JSON_THROW_ON_ERROR);if ($type!=='products' || !$public || $item['visible']) $content[$type][]=$item; }
-        $pdo->commit();return ['revision'=>(int)$revision,'content'=>$content];
+        $pdo->commit();return ['revision'=>(int)$revision,'content'=>$normalize?validate_content($content):$content];
     } catch (\Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack();throw $e; }
 }
 function write_rows(array $content): void {
-    $pdo=db();foreach (['site','contact'] as $key) $pdo->prepare('REPLACE INTO atelier_settings (setting_key,payload) VALUES (?,?)')->execute([$key,encode($content[$key])]);
+    $pdo=db();foreach (['site','contact','colors','catalogVersion'] as $key) $pdo->prepare('REPLACE INTO atelier_settings (setting_key,payload) VALUES (?,?)')->execute([$key,encode($content[$key])]);
     foreach (['products'=>'id','materials'=>'name'] as $type=>$id) {
         $pdo->exec("DELETE FROM atelier_$type");$q=$pdo->prepare("INSERT INTO atelier_$type ($id,sort_order,payload) VALUES (?,?,?)");
         foreach ($content[$type] as $i=>$item) $q->execute([$item[$id],$i,encode($item)]);
@@ -101,12 +101,12 @@ require __DIR__.'/media.php';
 
 // Antes de normalizar las fichas antiguas, guardar su versión completa fuera de public_html.
 function archive_retired_content(array $saved): void {
-    $legacy=false;
+    $legacy=!array_key_exists('colors',$saved['content']);
     foreach($saved['content']['products'] as $p)if(array_key_exists('upholstery',$p))$legacy=true;
     foreach($saved['content']['materials'] as $m)if(array_key_exists('texture',$m))$legacy=true;
     if(!$legacy)return;
     $dir=storage().'/backups';if(!is_dir($dir)&&!mkdir($dir,0700,true)&&!is_dir($dir))fail(503,'No se pudo crear el respaldo de datos anteriores.');
-    $json=encode($saved);$file=$dir.'/content-before-prepared-variants-'.$saved['revision'].'-'.substr(hash('sha256',$json),0,12).'.json';
+    $json=encode($saved);$file=$dir.'/content-before-global-colors-'.$saved['revision'].'-'.substr(hash('sha256',$json),0,12).'.json';
     if(!is_file($file) && file_put_contents($file,$json,LOCK_EX)===false)fail(503,'No se pudo respaldar la configuración anterior.');
     if(file_get_contents($file)!==$json)fail(503,'No se pudo verificar el respaldo de configuración.');chmod($file,0600);
 }

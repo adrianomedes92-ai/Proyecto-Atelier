@@ -24,6 +24,7 @@ let saved;
 try {
   saved = JSON.parse(await readFile(contentFile, "utf8"));
   if (
+    saved.content.colors === undefined ||
     saved.content.products.some((p) => p.upholstery !== undefined) ||
     saved.content.materials.some((m) => m.texture !== undefined)
   ) {
@@ -31,7 +32,7 @@ try {
     const backup = join(
       store,
       "backups",
-      `content-before-prepared-variants-${saved.revision}.json`,
+      `content-before-global-colors-${saved.revision}.json`,
     );
     try {
       await writeFile(backup, JSON.stringify(saved, null, 2), {
@@ -144,6 +145,7 @@ const publicFiles = new Set([
   "admin.js",
   "admin.css",
   "content-schema.js",
+  "color-catalog-migration.js",
   "image-urls.js",
   "product-gallery.js",
   "hero-slideshow.js",

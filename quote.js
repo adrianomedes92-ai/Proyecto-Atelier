@@ -1,4 +1,4 @@
-import { materials, availableVariants, site } from "./data.js";
+import { materials, colors, availableVariants, site } from "./data.js";
 export function validate(product, s) {
   const errors = [];
   const variants = availableVariants(product);
@@ -51,7 +51,7 @@ export function message(product, s) {
       `Medida solicitada: ${s.measure === "custom" ? s.custom : s.measure === "range" ? s.width + " cm de ancho (otras dimensiones a confirmar)" : product.reference}`,
     m &&
       `Tapizado: ${m.type} · ${m.name}${m.code ? " · Código de tela: " + m.code : ""}`,
-    `Color: ${m?.swatches?.find((v) => v.code === s.color)?.name ? m.swatches.find((v) => v.code === s.color).name + " · " : ""}${s.color || "A definir con la fábrica; solicitar muestrario"}`,
+    `Color: ${colors.find((v) => v.code === s.color)?.name ? colors.find((v) => v.code === s.color).name + " · " : ""}${s.color || "A definir con la fábrica; solicitar muestrario"}`,
     s.leg && `Patas: ${s.leg}`,
     s.layout && `Configuración modular: ${s.layout}`,
     s.notes?.trim() && `Observaciones: ${s.notes.trim()}`,

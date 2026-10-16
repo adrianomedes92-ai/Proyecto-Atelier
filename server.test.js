@@ -51,6 +51,8 @@ test("admin autenticado, fotos, validación, conflicto y persistencia", async ()
   }
   try {
     const legacy = initialContent();
+    delete legacy.colors;
+    delete legacy.catalogVersion;
     legacy.products[2].image = "/uploads/abc.webp";
     legacy.products[2].images = ["/uploads/abc.webp"];
     legacy.products[2].upholstery = {
@@ -70,7 +72,7 @@ test("admin autenticado, fotos, validación, conflicto y persistencia", async ()
     let port = await start();
     const archive = JSON.parse(
       await readFile(
-        join(store, "backups", "content-before-prepared-variants-4.json"),
+        join(store, "backups", "content-before-global-colors-4.json"),
         "utf8",
       ),
     );
@@ -145,14 +147,10 @@ test("admin autenticado, fotos, validación, conflicto y persistencia", async ()
     saved.content.site.brandFontSize = 30;
     saved.content.products[0].image = url;
     saved.content.products[0].images = [url];
-    saved.content.materials[0].codes = ["001"];
+    saved.content.colors = [{ code: "001", name: "Azul" }];
+    saved.content.materials[0].colorCodes = ["001"];
     saved.content.materials[0].code = "T-01";
-    saved.content.materials[0].swatches = [
-      { code: "001", name: "Azul", active: true, image: url },
-    ];
-    saved.content.products[0].variants = [
-      { material: saved.content.materials[0].name, code: "001", images: [url] },
-    ];
+    saved.content.products[0].variants = [{ code: "001", images: [url] }];
     const info = await (
       await request(
         "/api/admin/image-info?url=" + encodeURIComponent(url),

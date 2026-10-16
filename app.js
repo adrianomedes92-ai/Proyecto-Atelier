@@ -109,7 +109,12 @@ function open(id) {
     if (!e.target.name) return;
     s[e.target.name] = e.target.value;
     if (e.target.name === "material") {
-      s.color = "";
+      if (
+        !availableVariants(p).some(
+          (v) => v.material.name === s.material && v.variant.code === s.color,
+        )
+      )
+        s.color = "";
       renderColor();
     }
     if (e.target.name === "color") renderColor();
@@ -140,8 +145,8 @@ function renderColor() {
     m = variants[0]?.material;
   if (!$("#color-control")) return;
   $("#color-control").innerHTML = variants.length
-    ? `<label>Color disponible <select name="color"><option value="">Elegí un color</option>${variants.map(({ variant: v }) => `<option value="${esc(v.code)}" ${s.color === v.code ? "selected" : ""}>${esc(v.name || v.code)} · ${esc(v.code)}</option>`).join("")}</select></label><div class="swatches">${variants.map(({ variant: v }) => `<button type="button" class="swatch" data-code="${esc(v.code)}" aria-pressed="${s.color === v.code}"><img src="${esc(v.image)}" alt="Muestra de ${esc(m.name)}, ${esc(v.name || v.code)}"><span>${esc(v.name || v.code)} · ${esc(v.code)}</span></button>`).join("")}</div><p class="hint">El color puede variar según la pantalla y la iluminación. Confirmalo con la muestra física.</p>`
-    : `<p class="hint">${available.length ? "Elegí una tela para ver sus colores disponibles para este mueble." : "Todavía no hay combinaciones con imágenes disponibles para este mueble. Podés consultar las opciones con la fábrica."}</p>`;
+    ? `<label>Color disponible <select name="color"><option value="">Elegí un color</option>${variants.map(({ variant: v }) => `<option value="${esc(v.code)}" ${s.color === v.code ? "selected" : ""}>${esc(v.name || v.code)} · ${esc(v.code)}</option>`).join("")}</select></label><div class="swatches">${variants.map(({ variant: v }) => `<button type="button" class="swatch" data-code="${esc(v.code)}" aria-pressed="${s.color === v.code}"><span>${esc(v.name || v.code)} · ${esc(v.code)}</span></button>`).join("")}</div><p class="hint">El color puede variar según la pantalla y la iluminación. Confirmalo con la muestra física.</p>`
+    : `<p class="hint">${available.length ? "Elegí una tela para ver sus colores disponibles para este mueble." : "Todavía no hay colores habilitados con imágenes disponibles para este mueble. Podés consultar las opciones con la fábrica."}</p>`;
   if (m?.description) {
     const text = document.createElement("p");
     text.className = "hint";
@@ -160,20 +165,25 @@ function renderColor() {
     );
   const selection = variants.find((v) => v.variant.code === s.color);
   if (selection) {
-    const sample = document.createElement("div");
-    sample.className = "selected-fabric";
-    sample.innerHTML = `<img src="${esc(selection.variant.image)}" alt="Muestra seleccionada"><span>${esc(m.name)}${m.code ? " · " + esc(m.code) : ""}<br>${esc(selection.variant.name || selection.variant.code)} · ${esc(selection.variant.code)}</span>`;
-    $("#color-control").append(sample);
+    const label = document.createElement("p");
+    label.className = "selected-fabric";
+    label.textContent = `${m.name}${m.code ? " · " + m.code : ""} / ${selection.variant.name} · ${selection.variant.code}`;
+    $("#color-control").append(label);
   }
   if ($("#customizer-original-photos"))
     $("#customizer-original-photos").hidden = Boolean(selection);
-  mountVariantGallery(
-    $("#variant-preview"),
-    selection?.images || [],
-    selection
-      ? `${selected.name} · ${m.name} · ${selection.variant.name || selection.variant.code} · ${selection.variant.code}`
-      : selected.name,
-  );
+  const container = $("#variant-preview"),
+    galleryKey = JSON.stringify([selected.id, selection?.variant.code || ""]);
+  if (container.dataset.gallery !== galleryKey) {
+    container.dataset.gallery = galleryKey;
+    mountVariantGallery(
+      container,
+      selection?.images || [],
+      selection
+        ? `${selected.name} · ${selection.variant.name} · ${selection.variant.code}`
+        : selected.name,
+    );
+  }
 }
 function renderMeasure() {
   const s = drafts[selected.id];

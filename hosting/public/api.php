@@ -29,7 +29,7 @@ try {
     if ($path==='/api/admin/content' && $method==='GET') json_response(200,read_content());
     if ($path==='/api/admin/content' && $method==='PUT') {
         $input=json_input();if (!isset($input['revision']) || !is_int($input['revision']) || $input['revision']<0) fail(400,'Revisión inválida.');
-        $content=validate_content($input['content'] ?? null);Atelier\archive_retired_content(read_content());$revision=save_content($content,$input['revision']);json_response(200,['revision'=>$revision,'ok'=>true]);
+        $content=validate_content($input['content'] ?? null);Atelier\archive_retired_content(read_content(false,false));$revision=save_content($content,$input['revision']);json_response(200,['revision'=>$revision,'ok'=>true]);
     }
     if ($path==='/api/admin/image-info' && $method==='GET') json_response(200,Atelier\media_info((string)($_GET['url']??'')));
     if ($path==='/api/admin/image-source' && $method==='GET') {
