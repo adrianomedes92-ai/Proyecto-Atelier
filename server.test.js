@@ -153,22 +153,48 @@ test("admin autenticado, fotos, validación, conflicto y persistencia", async ()
     saved.content.products[0].variants = [
       { material: saved.content.materials[0].name, code: "001", images: [url] },
     ];
-    for (const route of [
+    const info = await (
+      await request(
+        "/api/admin/image-info?url=" + encodeURIComponent(url),
+        "GET",
+        null,
+        cookie,
+      )
+    ).json();
+    assert.equal((await request(info.sourceUrl)).status, 401);
+    assert.deepEqual(
+      Buffer.from(
+        await (
+          await request(info.sourceUrl, "GET", null, cookie)
+        ).arrayBuffer(),
+      ),
+      png,
+    );
+    const editedResponse = await request(
       "/api/admin/recrop",
-      "/api/admin/image-info",
-      "/api/admin/image-source",
-    ])
-      assert.equal(
-        (
-          await request(
-            route,
-            route.endsWith("recrop") ? "POST" : "GET",
-            route.endsWith("recrop") ? {} : null,
-            cookie,
-          )
-        ).status,
-        404,
-      );
+      "POST",
+      { url, kind: "product", crop: { x: 20, y: 16, width: 50, height: 40 } },
+      cookie,
+    );
+    assert.equal(editedResponse.status, 201);
+    const edited = await editedResponse.json();
+    assert.equal(edited.original, info.original);
+    assert.notEqual(edited.url, url);
+    assert.equal(
+      (
+        await await request(
+          "/api/admin/recrop",
+          "POST",
+          {
+            url,
+            kind: "product",
+            crop: { x: 999, y: 0, width: 50, height: 40 },
+          },
+          cookie,
+        )
+      ).status,
+      400,
+    );
     assert.equal(
       (await request("/api/admin/content", "PUT", saved, cookie)).status,
       200,

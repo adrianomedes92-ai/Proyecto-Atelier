@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import sharp from "sharp";
 import { optimizeImage } from "./image-processing.js";
 import { cardImage } from "./image-urls.js";
-test("foto grande: reduce dimensiones, convierte WebP y crea tarjeta 5:4 sin cortar", async () => {
+test("foto grande: reduce dimensiones, convierte WebP y crea tarjeta 5:4 sin bandas", async () => {
   const source = await sharp({
     create: { width: 2400, height: 3200, channels: 3, background: "#cd4f30" },
   })
@@ -29,7 +29,7 @@ test("foto grande: reduce dimensiones, convierte WebP y crea tarjeta 5:4 sin cor
   ];
   const edge = at(0, 320),
     middle = at(400, 320);
-  assert.ok(edge.every((n, i) => Math.abs(n - [232, 231, 222][i]) < 8));
+  assert.ok(edge[0] > edge[1] * 2);
   assert.ok(middle[0] > middle[1] * 2);
   assert.equal(
     cardImage("/uploads/abc-optimized.webp"),
@@ -77,4 +77,46 @@ test("rechaza archivos inválidos, SVG, JPG truncado y tipos de uso desconocidos
     optimizeImage(Buffer.from("x"), "unknown"),
     (e) => e.status === 400,
   );
+});
+
+test("el recorte llena la miniatura aunque la fuente sea pequeña, vertical o panorámica", async () => {
+  const { cropRectangle } = await import("./crop-geometry.js");
+  for (const [width, height] of [
+    [100, 80],
+    [240, 600],
+    [1200, 200],
+    [60, 90],
+  ]) {
+    const source = await sharp({
+      create: { width, height, channels: 3, background: "#d52e16" },
+    })
+      .png()
+      .toBuffer();
+    const result = await optimizeImage(
+      source,
+      "product",
+      cropRectangle(width, height, "product", 1.5),
+    );
+    const meta = await sharp(result.data).metadata();
+    assert.equal(meta.width / meta.height, 5 / 4);
+    const card = await sharp(result.card).metadata();
+    assert.equal(card.width, 800);
+    assert.equal(card.height, 640);
+    for (const [left, top] of [
+      [0, 0],
+      [799, 0],
+      [0, 639],
+      [799, 639],
+      [400, 320],
+    ]) {
+      const pixel = await sharp(result.card)
+        .extract({ left, top, width: 1, height: 1 })
+        .raw()
+        .toBuffer();
+      assert.ok(
+        pixel[0] > 180 && pixel[1] < 80 && pixel[2] < 70,
+        `Banda detectada para ${width} × ${height}`,
+      );
+    }
+  }
 });

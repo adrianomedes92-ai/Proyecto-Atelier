@@ -49,7 +49,6 @@ for (const name of [
   "validation.php",
   "media.php",
   "schema.sql",
-  "retire-image-editor.php",
   "config.example.php",
   ".htaccess",
 ])
@@ -68,6 +67,8 @@ for (const name of [
   "product-gallery.js",
   "hero-slideshow.js",
   "brand.js",
+  "image-editor.js",
+  "crop-geometry.js",
   "prepared-variants.js",
   "variant-admin.js",
   "material-admin.js",

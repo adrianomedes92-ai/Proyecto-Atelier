@@ -7,7 +7,7 @@ export function mountVariantAdmin(
   product.variants ||= [];
   const section = document.createElement("section");
   section.className = "variant-admin";
-  section.innerHTML = `<h3>Imágenes por tela y color</h3><p class="hint">Cargá fotos ya preparadas de este mueble. No se recortan ni recolorean. Cada asociación se guarda solo para este modelo, tela y código. Para ofrecerla al cliente necesita una variante activa, una muestra y al menos una foto.</p><label>Tela y código a asociar<select data-associate-choice><option value="">Elegí una variante</option></select></label><button type="button" class="secondary" data-add-association>＋ Asociar variante</button><div data-associations></div>`;
+  section.innerHTML = `<h3>Imágenes por tela y color</h3><p class="hint">Cargá fotos ya preparadas de este mueble. Elegí zoom y encuadre 5:4 al cargar; no se recolorean. Cada asociación se guarda solo para este modelo, tela y código. Para ofrecerla al cliente necesita una variante activa, una muestra y al menos una foto.</p><label>Tela y código a asociar<select data-associate-choice><option value="">Elegí una variante</option></select></label><button type="button" class="secondary" data-add-association>＋ Asociar variante</button><div data-associations></div>`;
   parent.append(section);
   const choice = section.querySelector("[data-associate-choice]"),
     choices = [];
@@ -54,7 +54,7 @@ export function mountVariantAdmin(
     const card = document.createElement("div");
     card.className = "variant-card";
     card.dataset.association = index;
-    card.innerHTML = `<h4>${esc(v.material)} · ${esc(sample?.name || v.code)} · ${esc(v.code)}</h4><p class="hint">${unavailable ? "No se ofrece al cliente: revisá el estado, la muestra, las familias habilitadas y las fotos." : "Disponible para este mueble al guardar."}</p><div class="image-list">${v.images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="${esc(v.code)}, foto ${i + 1}"><small>Foto ${i + 1}</small><div class="variant-order"><button type="button" class="secondary" data-move-image="${i}" data-delta="-1" aria-label="Mover foto ${i + 1} antes" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="secondary" data-move-image="${i}" data-delta="1" aria-label="Mover foto ${i + 1} después" ${i === v.images.length - 1 ? "disabled" : ""}>↓</button></div><label>Reemplazar foto ${i + 1}<input type="file" data-replace-variant="${i}" accept="image/jpeg,image/png,image/webp"></label><button type="button" class="secondary danger" data-remove-variant-image="${i}">Quitar foto</button></div>`).join("")}</div><label>Agregar imágenes preparadas<input type="file" data-upload-variant multiple accept="image/jpeg,image/png,image/webp"></label><button type="button" class="secondary danger" data-remove-association>Quitar asociación</button>`;
+    card.innerHTML = `<h4>${esc(v.material)} · ${esc(sample?.name || v.code)} · ${esc(v.code)}</h4><p class="hint">${unavailable ? "No se ofrece al cliente: revisá el estado, la muestra, las familias habilitadas y las fotos." : "Disponible para este mueble al guardar."}</p><div class="image-list">${v.images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="${esc(v.code)}, foto ${i + 1}"><small>Foto ${i + 1}</small><button type="button" class="secondary" data-recrop="${esc(url)}" data-crop-kind="product" data-crop-scope="variant" data-crop-association="${index}" data-crop-index="${i}">Editar encuadre</button><div class="variant-order"><button type="button" class="secondary" data-move-image="${i}" data-delta="-1" aria-label="Mover foto ${i + 1} antes" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="secondary" data-move-image="${i}" data-delta="1" aria-label="Mover foto ${i + 1} después" ${i === v.images.length - 1 ? "disabled" : ""}>↓</button></div><label>Reemplazar foto ${i + 1}<input type="file" data-replace-variant="${i}" accept="image/jpeg,image/png,image/webp"></label><button type="button" class="secondary danger" data-remove-variant-image="${i}">Quitar foto</button></div>`).join("")}</div><label>Agregar imágenes preparadas<input type="file" data-upload-variant multiple accept="image/jpeg,image/png,image/webp"></label><button type="button" class="secondary danger" data-remove-association>Quitar asociación</button>`;
     list.append(card);
     card.querySelector("[data-remove-association]").onclick = () => {
       product.variants.splice(index, 1);
@@ -89,6 +89,7 @@ export function mountVariantAdmin(
           throw Error("Máximo 12 fotos por mueble y variante.");
         for (const file of files) {
           const url = await upload(file, "product");
+          if (!url) continue;
           if (replace === null) v.images.push(url);
           else v.images[replace] = url;
           changed();

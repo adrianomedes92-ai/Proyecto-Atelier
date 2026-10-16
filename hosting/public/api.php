@@ -31,7 +31,20 @@ try {
         $input=json_input();if (!isset($input['revision']) || !is_int($input['revision']) || $input['revision']<0) fail(400,'Revisión inválida.');
         $content=validate_content($input['content'] ?? null);Atelier\archive_retired_content(read_content());$revision=save_content($content,$input['revision']);json_response(200,['revision'=>$revision,'ok'=>true]);
     }
-    if ($path==='/api/admin/upload' && $method==='POST') json_response(201,upload_media(body(20*1024*1024),$_SERVER['HTTP_X_IMAGE_KIND'] ?? 'product'));
+    if ($path==='/api/admin/image-info' && $method==='GET') json_response(200,Atelier\media_info((string)($_GET['url']??'')));
+    if ($path==='/api/admin/image-source' && $method==='GET') {
+        $info=Atelier\media_info((string)($_GET['url']??''));$bytes=Atelier\original_bytes($info);$size=getimagesizefromstring($bytes);header('Content-Type: '.$size['mime']);header('Cache-Control: no-store');echo $bytes;exit;
+    }
+    if ($path==='/api/admin/recrop' && $method==='POST') {
+        $input=json_input();$info=Atelier\media_info((string)($input['url']??''));
+        if(!is_array($input['crop']??null)||!is_string($input['kind']??null))fail(400,'Falta el encuadre.');
+        json_response(201,upload_media(Atelier\original_bytes($info),$input['kind'],$input['crop'],$info['legacy']?null:$info['original']));
+    }
+    if ($path==='/api/admin/upload' && $method==='POST') {
+        try {$crop=isset($_SERVER['HTTP_X_IMAGE_CROP'])?json_decode($_SERVER['HTTP_X_IMAGE_CROP'],true,512,JSON_THROW_ON_ERROR):null;}catch(\JsonException $e){fail(400,'El encuadre no es válido.');}
+        if($crop!==null&&!is_array($crop))fail(400,'El encuadre no es válido.');
+        json_response(201,upload_media(body(20*1024*1024),$_SERVER['HTTP_X_IMAGE_KIND'] ?? 'product',$crop));
+    }
     fail(404,'No encontrado.');
 } catch (HttpError $e) {json_response($e->status,['error'=>$e->getMessage()]);}
 catch (\Throwable $e) {error_log('Atelier: error de servidor '.get_class($e).' ('.$e->getCode().')');json_response(503,['error'=>'No se pudo completar la operación. Revisá la conexión MySQL, la instalación y los permisos del almacenamiento.']);}

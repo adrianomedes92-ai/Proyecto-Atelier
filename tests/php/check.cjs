@@ -43,6 +43,8 @@ const run = promisify(execFile),
       "product-gallery.js",
       "hero-slideshow.js",
       "brand.js",
+      "image-editor.js",
+      "crop-geometry.js",
       "prepared-variants.js",
       "variant-admin.js",
       "material-admin.js",
@@ -211,7 +213,7 @@ const run = promisify(execFile),
       "-p" + password,
       "atelier",
       "-e",
-      `UPDATE atelier_products SET payload=JSON_SET(payload,'$.upholstery',JSON_OBJECT('enabled',true,'base','/uploads/aaa.png','mask','/uploads/bbb.png')) WHERE id='clapton-dos'; CREATE TABLE atelier_media (url VARCHAR(250) PRIMARY KEY,payload LONGTEXT); INSERT INTO atelier_media VALUES ('/uploads/abc.webp','metadatos-a-conservar');`,
+      `UPDATE atelier_products SET payload=JSON_SET(payload,'$.upholstery',JSON_OBJECT('enabled',true,'base','/uploads/aaa.png','mask','/uploads/bbb.png')) WHERE id='clapton-dos';`,
     ]);
     const saved = await (
       await request("/api/admin/content", "GET", null, cookie)
@@ -267,6 +269,84 @@ const run = promisify(execFile),
       ).metadata();
       assert.equal(thumb.width, 800);
       assert.equal(thumb.height, 640);
+      const info = await (
+        await request(
+          "/api/admin/image-info?url=" + encodeURIComponent(uploaded.url),
+          "GET",
+          null,
+          cookie,
+        )
+      ).json();
+      assert.equal((await request(info.sourceUrl)).status, 401);
+      assert.deepEqual(
+        Buffer.from(
+          await (
+            await request(info.sourceUrl, "GET", null, cookie)
+          ).arrayBuffer(),
+        ),
+        image,
+      );
+      const recrop = await request(
+        "/api/admin/recrop",
+        "POST",
+        {
+          url: uploaded.url,
+          kind: "product",
+          crop: { x: 400, y: 300, width: 1000, height: 800 },
+        },
+        cookie,
+      );
+      assert.equal(recrop.status, 201, await recrop.clone().text());
+      const edited = await recrop.json();
+      assert.equal(edited.original, info.original);
+      assert.notEqual(edited.url, uploaded.url);
+      const small = await sharp({
+        create: { width: 100, height: 200, channels: 3, background: "#d52e16" },
+      })
+        .png()
+        .toBuffer();
+      const smallResponse = await fetch(base + "/api/admin/upload", {
+        method: "POST",
+        headers: {
+          Origin: base,
+          Cookie: cookie,
+          "X-Image-Kind": "product",
+          "X-Image-Crop": JSON.stringify({
+            x: 20,
+            y: 40,
+            width: 50,
+            height: 40,
+          }),
+        },
+        body: small,
+      });
+      assert.equal(
+        smallResponse.status,
+        201,
+        await smallResponse.clone().text(),
+      );
+      const smallInfo = await smallResponse.json(),
+        thumbBytes = Buffer.from(
+          await (await fetch(base + smallInfo.thumbnailUrl)).arrayBuffer(),
+        );
+      const smallMeta = await sharp(thumbBytes).metadata();
+      assert.equal(smallMeta.width, 800);
+      assert.equal(smallMeta.height, 640);
+      for (const [left, top] of [
+        [0, 0],
+        [799, 0],
+        [0, 639],
+        [799, 639],
+      ]) {
+        const pixel = await sharp(thumbBytes)
+          .extract({ left, top, width: 1, height: 1 })
+          .raw()
+          .toBuffer();
+        assert.ok(
+          pixel[0] > 180 && pixel[1] < 80 && pixel[2] < 70,
+          engine + ": no debe agregar bandas",
+        );
+      }
       for (const kind of ["swatch", "hero"]) {
         const result = await fetch(base + "/api/admin/upload", {
           method: "POST",
@@ -330,54 +410,6 @@ const run = promisify(execFile),
         .mask,
       "/uploads/bbb.png",
     );
-    for (const route of [
-      "/api/admin/recrop",
-      "/api/admin/image-info",
-      "/api/admin/image-source",
-    ])
-      assert.equal(
-        (
-          await request(
-            route,
-            route.endsWith("recrop") ? "POST" : "GET",
-            route.endsWith("recrop") ? {} : null,
-            cookie,
-          )
-        ).status,
-        404,
-      );
-    const retire = await docker([
-      "exec",
-      phpName,
-      "php",
-      containerRoot + "/atelier-private/retire-image-editor.php",
-    ]);
-    assert.match(retire.stdout, /se retiró solo atelier_media/);
-    const archiveNames = await require("node:fs/promises").readdir(
-      join(priv, "storage", "backups"),
-    );
-    const metadataBackup = JSON.parse(
-      await require("node:fs/promises").readFile(
-        join(
-          priv,
-          "storage",
-          "backups",
-          archiveNames.find((n) => n.startsWith("retired-image-editor")),
-        ),
-        "utf8",
-      ),
-    );
-    assert.deepEqual(metadataBackup.rows, [
-      { url: "/uploads/abc.webp", payload: "metadatos-a-conservar" },
-    ]);
-    const repeatRetire = await docker([
-      "exec",
-      phpName,
-      "php",
-      containerRoot + "/atelier-private/retire-image-editor.php",
-    ]);
-    assert.match(repeatRetire.stdout, /ya no existe/);
-    assert.equal((await fetch(base + uploaded.url)).status, 200);
     const unknownCode = structuredClone(pubData);
     unknownCode.revision = pubData.revision;
     unknownCode.content.products[0].variants = [
@@ -512,7 +544,7 @@ const run = promisify(execFile),
         await require("../prepared-variants-flow.cjs")(page, base, root, false);
         assert.deepEqual(errors, []);
         console.log(
-          "PASS variantes PHP/MySQL: carga, orden, reemplazo, filtros, persistencia y WhatsApp, sin recortador ni composición automática.",
+          "PASS variantes PHP/MySQL: carga, orden, reemplazo, filtros, persistencia y WhatsApp, con encuadre y sin composición automática.",
         );
         console.log(
           "PASS navegador móvil contra PHP/MySQL: admin, guardar contenido, portada, catálogo y configurador.",

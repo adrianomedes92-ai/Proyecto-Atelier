@@ -7,10 +7,10 @@ export function renderMaterialAdmin(
   const m = content.materials[index];
   editor.innerHTML = `<div class="editor-grid"><aside class="entity-list"><button id="new-material">＋ Agregar tela</button>${content.materials.map((m, i) => `<button data-family="${i}" aria-pressed="${i === index}">${esc(m.name)}<small>${esc(m.type)} · ${m.codes.length} variantes</small></button>`).join("")}</aside><section class="editor-card">${
     m
-      ? `<div class="editor-toolbar"><h2>Telas y colores</h2><button id="delete-material" class="secondary danger">Eliminar tela</button></div><div class="field-grid">${field("Nombre de la tela", "name", m.name)}${field("Tipo de tela", "type", m.type)}${field("Código de la tela", "code", m.code || "")}</div>${textarea("Descripción", "description", m.description || "")}<h3>Variantes de color</h3><p class="hint">Cada código identifica un color de esta tela. Una variante inactiva conserva sus imágenes y asociaciones, pero no se ofrece al cliente. Subí muestras reales: recomendado 800 × 800 px. JPG, PNG o WebP, hasta 20 MB y 60 megapíxeles; se optimizan conservando el encuadre.</p>${m.codes
+      ? `<div class="editor-toolbar"><h2>Telas y colores</h2><button id="delete-material" class="secondary danger">Eliminar tela</button></div><div class="field-grid">${field("Nombre de la tela", "name", m.name)}${field("Tipo de tela", "type", m.type)}${field("Código de la tela", "code", m.code || "")}</div>${textarea("Descripción", "description", m.description || "")}<h3>Variantes de color</h3><p class="hint">Cada código identifica un color de esta tela. Una variante inactiva conserva sus imágenes y asociaciones, pero no se ofrece al cliente. Subí muestras reales: recomendado 800 × 800 px. JPG, PNG o WebP, hasta 20 MB y 60 megapíxeles; elegí zoom y encuadre cuadrado (1:1) antes de cargar.</p>${m.codes
           .map((code, i) => {
             const v = m.swatches.find((s) => s.code === code) || {};
-            return `<div class="swatch-row" data-color-row="${i}">${field("Código de la variante", "variant-code-" + i, code)}${field("Nombre del color", "variant-name-" + i, v.name || "")}<label class="check"><input type="checkbox" data-active="${i}" ${v.active !== false ? "checked" : ""}>Activa</label><div>${v.image ? `<img src="${esc(v.image)}" alt="Muestra ${esc(code)}"><button type="button" class="text-button" data-remove-swatch="${i}">Quitar muestra</button>` : ""}<label>Imagen de muestra<input type="file" data-swatch="${i}" accept="image/jpeg,image/png,image/webp"></label></div><button type="button" class="secondary danger" data-delete-code="${i}">Eliminar variante</button></div>`;
+            return `<div class="swatch-row" data-color-row="${i}">${field("Código de la variante", "variant-code-" + i, code)}${field("Nombre del color", "variant-name-" + i, v.name || "")}<label class="check"><input type="checkbox" data-active="${i}" ${v.active !== false ? "checked" : ""}>Activa</label><div>${v.image ? `<img src="${esc(v.image)}" alt="Muestra ${esc(code)}"><button type="button" class="secondary" data-recrop="${esc(v.image)}" data-crop-kind="swatch" data-crop-scope="material" data-crop-index="${i}">Editar encuadre</button><button type="button" class="text-button" data-remove-swatch="${i}">Quitar muestra</button>` : ""}<label>Imagen de muestra<input type="file" data-swatch="${i}" accept="image/jpeg,image/png,image/webp"></label></div><button type="button" class="secondary danger" data-delete-code="${i}">Eliminar variante</button></div>`;
           })
           .join(
             "",
@@ -151,7 +151,12 @@ export function renderMaterialAdmin(
         }
         lock(true);
         try {
-          swatch(i).image = await upload(file, "swatch");
+          const url = await upload(file, "swatch");
+          if (!url) {
+            status("Carga cancelada. Se conserva la muestra anterior.");
+            return;
+          }
+          swatch(i).image = url;
           changed();
           status("Muestra cargada en el borrador. Guardá los cambios.");
         } catch (e) {

@@ -14,6 +14,14 @@ module.exports = async function variantsFlow(page, base, root, mobile = false) {
     side = await fixture("azul-lateral.png", "#426e98"),
     beige = await fixture("arena-frente.png", "#d2bb9c"),
     replacement = await fixture("azul-nueva.png", "#316988");
+  async function cropped(action, count = 1) {
+    await action();
+    for (let i = 0; i < count; i++) {
+      await page.locator(".image-editor").waitFor();
+      await page.locator("[data-crop-confirm]").click();
+      await page.locator(".image-editor").waitFor({ state: "detached" });
+    }
+  }
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.locator("[data-tab=site]").click();
@@ -33,7 +41,7 @@ module.exports = async function variantsFlow(page, base, root, mobile = false) {
       row = page.locator(`[data-color-row="${i}"]`);
     await row.locator(`[data-field="variant-code-${i}"]`).fill(code);
     await row.locator(`[data-field="variant-name-${i}"]`).fill(name);
-    await row.locator("[data-swatch]").setInputFiles(file);
+    await cropped(() => row.locator("[data-swatch]").setInputFiles(file));
     await row.locator("img").waitFor();
     if (!active) await row.locator("[data-active]").uncheck();
   }
@@ -61,7 +69,10 @@ module.exports = async function variantsFlow(page, base, root, mobile = false) {
     const count = await page.locator("[data-association]").count(),
       card = page.locator(`[data-association="${count - 1}"]`);
     if (files?.length) {
-      await card.locator("[data-upload-variant]").setInputFiles(files);
+      await cropped(
+        () => card.locator("[data-upload-variant]").setInputFiles(files),
+        files.length,
+      );
       await page.waitForFunction(
         ({ index, n }) =>
           document
@@ -84,7 +95,9 @@ module.exports = async function variantsFlow(page, base, root, mobile = false) {
   const uploaded = await urls();
   await card.locator('[data-move-image="0"][data-delta="1"]').click();
   assert.deepEqual(await urls(), [uploaded[1], uploaded[0]]);
-  await card.locator('[data-replace-variant="0"]').setInputFiles(replacement);
+  await cropped(() =>
+    card.locator('[data-replace-variant="0"]').setInputFiles(replacement),
+  );
   await page.waitForFunction(
     (old) =>
       document
@@ -97,13 +110,34 @@ module.exports = async function variantsFlow(page, base, root, mobile = false) {
   assert.equal(replaced[1], uploaded[0]);
   await card.locator('[data-remove-variant-image="1"]').click();
   assert.equal((await urls()).length, 1);
-  await card.locator("[data-upload-variant]").setInputFiles(side);
+  await cropped(() =>
+    card.locator("[data-upload-variant]").setInputFiles(side),
+  );
   await page.waitForFunction(
     () =>
       document.querySelectorAll('[data-association="0"] .image-item').length ===
       2,
   );
+  const beforeRecrop = await urls();
+  await card.locator('[data-recrop][data-crop-index="0"]').click();
+  await page.locator(".image-editor").waitFor();
+  await page.locator("[data-crop-zoom]").fill("2");
+  await page.locator("[data-crop-confirm]").click();
+  await page.waitForFunction(
+    (old) =>
+      document
+        .querySelector('[data-association="0"] .image-item img')
+        .getAttribute("src") !== old,
+    beforeRecrop[0],
+  );
   const expected = await urls();
+  assert.notEqual(expected[0], beforeRecrop[0]);
+  await card.locator('[data-replace-variant="0"]').setInputFiles(replacement);
+  await page.locator(".image-editor").waitFor();
+  await page.locator("[data-crop-cancel]").first().click();
+  await page.waitForFunction(() => !document.querySelector("#save").disabled);
+  assert.deepEqual(await urls(), expected);
+
   const before = await page.evaluate(() =>
     fetch("/api/content").then((r) => r.json()),
   );

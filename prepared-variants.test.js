@@ -65,7 +65,7 @@ test("valida referencias, duplicados y límites manteniendo orden y estado inact
   p.variants = [association, association];
   assert.throws(() => validateContent(c), { status: 400 });
 });
-test("las fotos y datos comerciales anteriores se conservan, sin estructuras activas del recortador/máscaras", () => {
+test("las fotos y datos comerciales anteriores se conservan, sin estructuras activas de máscaras", () => {
   const c = fixture();
   c.products[0].image = "/uploads/abc-optimized.webp";
   c.products[0].images = [c.products[0].image];

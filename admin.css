@@ -317,3 +317,132 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.image-editor {
+  width: min(960px, 96vw);
+  padding: 24px;
+  max-height: 94dvh;
+}
+.image-editor h2 {
+  font-size: 25px;
+  margin: 0;
+}
+.crop-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(150px, 1fr);
+  gap: 24px;
+}
+.crop-stage {
+  position: relative;
+  width: min(100%, calc(48dvh * var(--crop-ratio)));
+  aspect-ratio: var(--crop-ratio);
+  background: #e8e7de;
+  touch-action: none;
+  cursor: grab;
+  overflow: hidden;
+}
+.crop-stage:active {
+  cursor: grabbing;
+}
+.crop-stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.crop-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to right,
+      transparent 33%,
+      #ffffff80 33%,
+      #ffffff80 33.3%,
+      transparent 33.3%,
+      transparent 66%,
+      #ffffff80 66%,
+      #ffffff80 66.3%,
+      transparent 66.3%
+    ),
+    linear-gradient(
+      to bottom,
+      transparent 33%,
+      #ffffff80 33%,
+      #ffffff80 33.3%,
+      transparent 33.3%,
+      transparent 66%,
+      #ffffff80 66%,
+      #ffffff80 66.3%,
+      transparent 66.3%
+    );
+  box-shadow: inset 0 0 0 1px #ffffffa0;
+}
+.crop-preview canvas {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+  background: #e8e7de;
+}
+.crop-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  position: sticky;
+  bottom: -24px;
+  background: var(--paper);
+  padding: 16px 0 4px;
+}
+.crop-actions button {
+  min-height: 44px;
+}
+.crop-warning {
+  font-size: 12px;
+  line-height: 1.6;
+  background: #f3e7ce;
+  padding: 12px;
+}
+.image-editor input[type="range"] {
+  padding: 0;
+  min-height: 44px;
+}
+.crop-stage:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+@media (max-width: 640px) {
+  dialog.image-editor {
+    padding: 16px;
+  }
+  .crop-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .crop-preview {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 8px;
+  }
+  .crop-preview h3 {
+    grid-column: 1/-1;
+  }
+  .crop-preview canvas {
+    width: 110px;
+  }
+  .crop-preview p {
+    margin: 0;
+  }
+  .crop-actions {
+    bottom: -16px;
+  }
+  .crop-actions .button {
+    padding: 12px 16px;
+    gap: 8px;
+  }
+  .crop-stage {
+    margin: auto;
+  }
+}

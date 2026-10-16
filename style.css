@@ -1020,3 +1020,16 @@ dialog.lightbox {
 #customizer-original-photos[hidden] {
   display: none;
 }
+/* El encuadre del producto llena siempre el marco 5:4 del catálogo y sus variantes. */
+.product-photo img {
+  object-fit: cover;
+}
+.variant-gallery {
+  aspect-ratio: 5 / 4;
+}
+.variant-gallery > img {
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+  object-fit: cover;
+}

@@ -1,3 +1,4 @@
+import { editImage } from "./image-editor.js";
 import { mountVariantAdmin } from "./variant-admin.js";
 import { renderMaterialAdmin } from "./material-admin.js";
 import { applyBrand } from "./brand.js";
@@ -147,15 +148,16 @@ const textarea = (label, key, value) =>
 function photos(images, kind) {
   const guide =
     kind === "product"
-      ? "<strong>Productos: recomendado 1600 × 1280 px (horizontal, proporción 5:4).</strong> Centrá el mueble y dejá un margen de aproximadamente 10% alrededor. La tarjeta usa una miniatura de hasta 800 × 640 px; si la proporción es distinta, se agrega fondo neutro para mostrar el mueble completo."
-      : "<strong>Inicio: recomendado 1600 × 1800 px (vertical, proporción 8:9).</strong> Dejá aire alrededor del mueble. Mostramos la imagen completa, sin cortar bordes.";
-  return `<div class="image-guide">${guide}</div><div class="image-list">${images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="Foto cargada ${i + 1}"><small>${i === 0 && kind === "product" ? "Portada" : ""}</small><button type="button" class="secondary" data-remove-image="${i}" data-kind="${kind}">Quitar foto</button>${i > 0 && kind === "product" ? `<button type="button" class="secondary" data-cover="${i}">Usar de portada</button>` : ""}</div>`).join("")}</div><label class="upload">${kind === "product" ? "Agregar fotografías" : "Cargar imagen de inicio"}<input type="file" data-upload="${kind}" accept="image/jpeg,image/png,image/webp" ${kind === "product" ? "multiple" : ""}></label><p class="hint">JPG, PNG o WebP, hasta 20 MB y 60 megapíxeles. Convertimos automáticamente a WebP y reducimos el tamaño, sin deformar ni recortar la foto. Solo se publican al guardar los cambios.</p>`;
+      ? "<strong>Productos: recomendado 1600 × 1280 px (horizontal, proporción 5:4).</strong> Centrá el mueble y dejá un margen de aproximadamente 10% alrededor. El editor usa un marco 5:4 que llena la tarjeta completa. La miniatura de 800 × 640 px conserva el mismo recorte, sin agregar márgenes."
+      : "<strong>Inicio: recomendado 1920 × 1080 px (horizontal, proporción 16:9).</strong> Dejá aire alrededor del mueble. Mostramos la imagen completa, sin cortar bordes.";
+  return `<div class="image-guide">${guide}</div><div class="image-list">${images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="Foto cargada ${i + 1}"><small>${i === 0 && kind === "product" ? "Portada" : ""}</small><button type="button" class="secondary" data-recrop="${esc(url)}" data-crop-kind="${kind}" data-crop-scope="product" data-crop-index="${i}">Editar encuadre</button><button type="button" class="secondary" data-remove-image="${i}" data-kind="${kind}">Quitar foto</button>${i > 0 && kind === "product" ? `<button type="button" class="secondary" data-cover="${i}">Usar de portada</button>` : ""}</div>`).join("")}</div><label class="upload">${kind === "product" ? "Agregar fotografías" : "Cargar imagen de inicio"}<input type="file" data-upload="${kind}" accept="image/jpeg,image/png,image/webp" ${kind === "product" ? "multiple" : ""}></label><p class="hint">JPG, PNG o WebP, hasta 20 MB y 60 megapíxeles. Ajustá zoom y encuadre antes de cargar. Guardamos el original y generamos WebP del recorte confirmado, sin deformar ni agregar márgenes. Solo se publican al guardar los cambios.</p>`;
 }
 function render() {
   if (tab === "products") renderProducts();
   else if (tab === "materials") renderMaterials();
   else if (tab === "site") renderSite();
   else renderBackup();
+  bindRecrops();
 }
 function renderProducts() {
   const p = content.products.find((p) => p.id === productId);
@@ -289,11 +291,17 @@ async function upload(file, kind = "product") {
     throw Error(
       "La imagen supera los 60 megapíxeles. Reducí sus dimensiones antes de subirla.",
     );
+  const crop = await editImage({ source: file, kind });
+  if (!crop) return null;
   status("Optimizando imagen…");
   const result = await api("/api/admin/upload", {
     method: "POST",
     body: file,
-    headers: { "Content-Type": file.type, "X-Image-Kind": kind },
+    headers: {
+      "Content-Type": file.type,
+      "X-Image-Kind": kind,
+      "X-Image-Crop": JSON.stringify(crop),
+    },
   });
   return result.url;
 }
@@ -345,6 +353,7 @@ function bindImages(p) {
               throw Error("Máximo 12 fotos por producto.");
             for (const file of files) {
               const url = await upload(file, input.dataset.upload);
+              if (!url) continue;
               if (input.dataset.upload === "product") {
                 p.images.push(url);
                 p.image = p.images[0];
@@ -381,7 +390,7 @@ function heroPhotos() {
   const images = content.site.heroImages;
   return `<div class="image-guide"><strong>Portada: recomendado 1920 × 1080 px, horizontal (16:9).</strong> Ubicá el producto hacia la derecha y dejá libre aproximadamente el 40% izquierdo para los textos superpuestos. En celular, el texto queda arriba y la foto se encuadra hacia abajo. La foto conserva su proporción completa: dejá margen alrededor del mueble, evitá textos incrustados y comprobá el resultado en ambos tamaños. Con una imagen se muestra fija; con varias, se alternan cada 5 segundos con fundido de 1 segundo.</div>
     <p class="hint">Hasta 12 imágenes JPG, PNG o WebP, de hasta 20 MB y 60 megapíxeles cada una, sin animación. Se optimizan a WebP. El orden de las miniaturas es el orden de presentación. Los cambios se publican al guardar.</p>
-    <div class="image-list hero-admin-images">${images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="Vista previa de portada ${i + 1}"><strong>Imagen ${i + 1}</strong><div class="hero-order"><button type="button" class="secondary" data-hero-move="${i}" data-direction="-1" aria-label="Mover imagen ${i + 1} antes" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="secondary" data-hero-move="${i}" data-direction="1" aria-label="Mover imagen ${i + 1} después" ${i === images.length - 1 ? "disabled" : ""}>↓</button></div><label class="hero-replace">Reemplazar<input type="file" data-hero-replace="${i}" accept="image/jpeg,image/png,image/webp"></label><button type="button" class="secondary danger" data-hero-remove="${i}">Eliminar imagen ${i + 1}</button></div>`).join("")}</div>
+    <div class="image-list hero-admin-images">${images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="Vista previa de portada ${i + 1}"><strong>Imagen ${i + 1}</strong><button type="button" class="secondary" data-recrop="${esc(url)}" data-crop-kind="hero" data-crop-scope="hero" data-crop-index="${i}">Editar encuadre</button><div class="hero-order"><button type="button" class="secondary" data-hero-move="${i}" data-direction="-1" aria-label="Mover imagen ${i + 1} antes" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="secondary" data-hero-move="${i}" data-direction="1" aria-label="Mover imagen ${i + 1} después" ${i === images.length - 1 ? "disabled" : ""}>↓</button></div><label class="hero-replace">Reemplazar<input type="file" data-hero-replace="${i}" accept="image/jpeg,image/png,image/webp"></label><button type="button" class="secondary danger" data-hero-remove="${i}">Eliminar imagen ${i + 1}</button></div>`).join("")}</div>
     ${images.length ? "" : '<p class="hint">Sin imágenes: la web conserva la portada gráfica original.</p>'}
     <label class="upload">Agregar imágenes de portada<input type="file" id="hero-upload" accept="image/jpeg,image/png,image/webp" multiple ${images.length >= 12 ? "disabled" : ""}></label>`;
 }
@@ -430,6 +439,7 @@ function bindHeroImages() {
       for (const file of files) {
         try {
           const url = await upload(file, "hero");
+          if (!url) continue;
           if (replaceIndex === undefined) images.push(url);
           else images[replaceIndex] = url;
           synchronize();
@@ -439,9 +449,11 @@ function bindHeroImages() {
         }
       }
       status(
-        replaceIndex === undefined
-          ? `${uploaded} imagen(es) optimizada(s). Revisá las vistas previas y guardá los cambios.`
-          : "Imagen reemplazada en el borrador. Revisá la vista previa y guardá los cambios.",
+        uploaded === 0
+          ? "Carga cancelada. Se conservan las imágenes anteriores."
+          : replaceIndex === undefined
+            ? `${uploaded} imagen(es) optimizada(s). Revisá las vistas previas y guardá los cambios.`
+            : "Imagen reemplazada en el borrador. Revisá la vista previa y guardá los cambios.",
       );
     } catch (error) {
       status(
@@ -542,4 +554,67 @@ try {
   if (state.authenticated) await enter();
 } catch (e) {
   status(e.message, true);
+}
+
+function bindRecrops() {
+  $("#editor")
+    .querySelectorAll("[data-recrop]")
+    .forEach(
+      (button) =>
+        (button.onclick = async () => {
+          lock(true);
+          try {
+            const {
+                recrop: url,
+                cropKind: kind,
+                cropScope: scope,
+              } = button.dataset,
+              index = Number(button.dataset.cropIndex);
+            const info = await api(
+              "/api/admin/image-info?url=" + encodeURIComponent(url),
+            );
+            const crop = await editImage({
+              source: info.sourceUrl,
+              kind,
+              crop: info.crop,
+              legacy: info.legacy,
+            });
+            if (!crop) {
+              status("Edición cancelada. Se conserva el encuadre anterior.");
+              return;
+            }
+            const result = await api("/api/admin/recrop", {
+              method: "POST",
+              body: JSON.stringify({ url, kind, crop }),
+            });
+            if (scope === "hero") {
+              content.site.heroImages[index] = result.url;
+              content.site.heroImage = content.site.heroImages[0] || "";
+            } else if (scope === "material") {
+              content.materials[materialIndex].swatches.find(
+                (s) => s.code === content.materials[materialIndex].codes[index],
+              ).image = result.url;
+            } else {
+              const p = content.products.find((p) => p.id === productId);
+              if (scope === "variant")
+                p.variants[Number(button.dataset.cropAssociation)].images[
+                  index
+                ] = result.url;
+              else {
+                p.images[index] = result.url;
+                p.image = p.images[0] || "";
+              }
+            }
+            changed();
+            status(
+              "Encuadre actualizado en el borrador. Guardá para publicarlo.",
+            );
+          } catch (e) {
+            status(e.message, true);
+          } finally {
+            lock(false);
+            render();
+          }
+        }),
+    );
 }
