@@ -1,9 +1,11 @@
+import { orderedProducts } from "./catalog-sections.js";
 import { mountVariantGallery } from "./prepared-variants.js";
 import { applyBrand } from "./brand.js";
 import { setupHeroSlideshow } from "./hero-slideshow.js";
 import { setupProductGallery } from "./product-gallery.js";
 import {
   products,
+  sections,
   materials,
   contact,
   site,
@@ -28,18 +30,84 @@ const gallery = setupProductGallery({
   dialog: $("#product-lightbox"),
   getProduct: (id) => products.find((product) => product.id === id),
 });
-function cards(category = "Todos") {
-  const list = products.filter(
-    (p) => category === "Todos" || p.category === category,
-  );
+let sectionId = "",
+  subsectionId = "";
+function catalogHref(section, subsection = "") {
+  const url = new URL(location.href);
+  url.searchParams.set("section", section);
+  if (subsection) url.searchParams.set("subsection", subsection);
+  else url.searchParams.delete("subsection");
+  url.hash = "catalogo";
+  return url.pathname + url.search + url.hash;
+}
+function cards() {
+  const section = sections.find((s) => s.id === sectionId);
+  const list = (section?.subsections || [])
+    .reduce(
+      (all, sub) =>
+        all.concat(
+          orderedProducts(
+            products.filter(
+              (p) => p.sectionId === sectionId && p.subsectionId === sub.id,
+            ),
+          ),
+        ),
+      orderedProducts(
+        products.filter((p) => p.sectionId === sectionId && !p.subsectionId),
+      ),
+    )
+    .filter((p) => !subsectionId || p.subsectionId === subsectionId);
   $("#cards").innerHTML = list.length
     ? list
-        .map(
-          (p, i) =>
-            `<article>${gallery.renderCard(p, i % 3)}<div class="card-label"><div><h3>${esc(p.name)}</h3><p>${esc(p.reference || "Color y disponibilidad a consultar")}</p></div><button class="text-button" data-product="${p.id}">Personalizar</button></div></article>`,
-        )
+        .map((p, i) => {
+          const personalize = p.options.includes("material");
+          const link = whatsappLink(
+            contact.whatsappInternational,
+            message(p, {}),
+          );
+          const action =
+            personalize || !link
+              ? `<button class="text-button" data-product="${p.id}">${personalize ? "Personalizar" : "Consultar"}</button>`
+              : `<a class="text-button" href="${esc(link)}" target="_blank" rel="noopener noreferrer">Consultar por WhatsApp</a>`;
+          return `<article>${gallery.renderCard(p, i % 3)}<div class="card-label"><div><h3>${esc(p.name)}</h3><p>${esc(p.reference || "Color y disponibilidad a consultar")}</p></div>${action}</div></article>`;
+        })
         .join("")
     : "<p>No hay productos para mostrar por el momento. Consultanos para conocer las opciones.</p>";
+}
+function renderCatalog() {
+  const params = new URL(location.href).searchParams;
+  sectionId = sections.some((s) => s.id === params.get("section"))
+    ? params.get("section")
+    : sections[0]?.id || "";
+  const section = sections.find((s) => s.id === sectionId);
+  subsectionId = section?.subsections.some(
+    (s) => s.id === params.get("subsection"),
+  )
+    ? params.get("subsection")
+    : "";
+  const links = sections
+    .map(
+      (s) =>
+        `<a href="${esc(catalogHref(s.id))}" data-section="${esc(s.id)}" ${s.id === sectionId ? 'aria-current="true"' : ""}>${esc(s.name)}</a>`,
+    )
+    .join("");
+  $("#section-links").innerHTML = links;
+  $("#catalog-sections").innerHTML = links;
+  $("#catalog-current").textContent = section
+    ? section.name +
+      (subsectionId
+        ? " / " + section.subsections.find((s) => s.id === subsectionId).name
+        : "")
+    : "";
+  $("#filters").innerHTML = section
+    ? [{ id: "", name: "Todos" }, ...section.subsections]
+        .map(
+          (sub) =>
+            `<a href="${esc(catalogHref(section.id, sub.id))}" data-section="${esc(section.id)}" class="catalog-filter" ${sub.id === subsectionId ? 'aria-current="true"' : ""}>${esc(sub.name)}</a>`,
+        )
+        .join("")
+    : "";
+  cards();
 }
 function renderSite() {
   document.title = site.name + " · Hecho para tu espacio";
@@ -235,27 +303,27 @@ $("#cards").addEventListener("click", (e) => {
     open(b.dataset.product);
   }
 });
-$("#filters").addEventListener("click", (e) => {
-  const b = e.target.closest("[data-category]");
-  if (!b) return;
-  $("#filters")
-    .querySelectorAll("button")
-    .forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-  cards(b.dataset.category);
+document.addEventListener("click", (e) => {
+  const link = e.target.closest("a[data-section]");
+  if (
+    !link ||
+    e.ctrlKey ||
+    e.metaKey ||
+    e.shiftKey ||
+    e.altKey ||
+    e.button !== 0
+  )
+    return;
+  e.preventDefault();
+  history.pushState({}, "", link.href);
+  renderCatalog();
+  if (link.closest("header")) $("#catalogo").scrollIntoView();
 });
+window.addEventListener("popstate", renderCatalog);
 try {
   await loadContent();
   renderSite();
-  $("#filters").innerHTML = [
-    "Todos",
-    ...new Set(products.map((p) => p.category)),
-  ]
-    .map(
-      (c, i) =>
-        `<button aria-pressed="${i === 0}" data-category="${esc(c)}">${esc(c)}</button>`,
-    )
-    .join("");
-  cards();
+  renderCatalog();
 } catch (error) {
   $("#cards").innerHTML =
     `<p role="alert">${esc(error.message)} <a href="/">Reintentar</a></p>`;

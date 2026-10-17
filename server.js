@@ -1,3 +1,4 @@
+import { publicCatalog } from "./catalog-sections.js";
 import { createMedia, mediaInfo, originalBytes } from "./media-store.js";
 import http from "node:http";
 import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
@@ -24,6 +25,7 @@ let saved;
 try {
   saved = JSON.parse(await readFile(contentFile, "utf8"));
   if (
+    saved.content.sections === undefined ||
     saved.content.colors === undefined ||
     saved.content.products.some((p) => p.upholstery !== undefined) ||
     saved.content.materials.some((m) => m.texture !== undefined)
@@ -146,6 +148,8 @@ const publicFiles = new Set([
   "admin.css",
   "content-schema.js",
   "color-catalog-migration.js",
+  "catalog-sections.js",
+  "section-admin.js",
   "image-urls.js",
   "product-gallery.js",
   "hero-slideshow.js",
@@ -175,10 +179,7 @@ const server = http.createServer(async (req, res) => {
       if (pathname === "/api/content" && req.method === "GET")
         return json(res, 200, {
           revision: saved.revision,
-          content: {
-            ...saved.content,
-            products: saved.content.products.filter((p) => p.visible),
-          },
+          content: publicCatalog(saved.content),
         });
       if (pathname === "/api/admin/session" && req.method === "GET")
         return json(res, 200, {

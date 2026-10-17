@@ -1,3 +1,4 @@
+import { migrateSections } from "./catalog-sections.js";
 import { migrateColorCatalog } from "./color-catalog-migration.js";
 const fail = (message) => {
   throw Object.assign(new Error(message), { status: 400 });
@@ -31,7 +32,28 @@ const image = (v) => {
 const strings = (v, label) => array(v, label).map((x) => text(x, label, 200));
 export function validateContent(value) {
   if (!value || typeof value !== "object") fail("Contenido inválido.");
-  value = migrateColorCatalog(value);
+  value = migrateSections(migrateColorCatalog(value));
+  const sections = array(value.sections, "Secciones", 100).map((s) => {
+    record(s, "Sección");
+    const node = (n) => {
+      record(n, "Categoría");
+      const id = text(n.id, "ID de categoría", 100),
+        name = text(n.name, "Nombre de categoría", 100);
+      if (!/^[a-z0-9-]+$/.test(id) || !name || typeof n.active !== "boolean")
+        fail("Completá nombre, ID y estado de la categoría.");
+      return { id, name, active: n.active };
+    };
+    return {
+      ...node(s),
+      subsections: array(s.subsections, "Subsecciones", 200).map(node),
+    };
+  });
+  const ids = sections.flatMap((s) => [
+    s.id,
+    ...s.subsections.map((x) => x.id),
+  ]);
+  if (new Set(ids).size !== ids.length)
+    fail("Los identificadores de categorías deben ser únicos.");
   const site = {};
   for (const key of [
     "name",
@@ -169,10 +191,24 @@ export function validateContent(value) {
       fail(`${name}: hay familias que ya no existen.`);
     if (options.includes("material") && !materials.length)
       fail(`${name}: cargá al menos una familia de tapizado.`);
+    const sectionId = text(p.sectionId, "Sección del producto", 100),
+      subsectionId = text(p.subsectionId ?? "", "Subsección", 100);
+    const section = sections.find((s) => s.id === sectionId);
+    if (
+      !section ||
+      (subsectionId && !section.subsections.some((s) => s.id === subsectionId))
+    )
+      fail(`${name}: elegí una sección y subsección válidas.`);
+    const sortOrder = p.sortOrder ?? 0;
+    if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 1000000)
+      fail("Orden de producto inválido.");
     return {
       id,
       name,
       category,
+      sectionId,
+      subsectionId,
+      sortOrder,
       reference,
       description: text(p.description || "", "Descripción"),
       structure: text(p.structure || "", "Estructura", 200),
@@ -190,7 +226,16 @@ export function validateContent(value) {
   });
   if (new Set(products.map((p) => p.id)).size !== products.length)
     fail("Los IDs de productos deben ser únicos.");
-  return { catalogVersion: 2, site, contact, colors, materials, products };
+  return {
+    catalogVersion: 2,
+    taxonomyVersion: 1,
+    sections,
+    site,
+    contact,
+    colors,
+    materials,
+    products,
+  };
 }
 
 function variants(value, colors) {

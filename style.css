@@ -1033,3 +1033,80 @@ dialog.lightbox {
   min-height: 0;
   object-fit: cover;
 }
+
+/* Navegación del catálogo, también visible y con salto de línea en celular. */
+.section-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+header nav {
+  flex-wrap: wrap;
+}
+.section-links a,
+.catalog-filter,
+#catalog-sections a {
+  overflow-wrap: anywhere;
+}
+.section-links a[aria-current="true"] {
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+.filters .catalog-filter,
+#catalog-sections a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 20px;
+  border: 1px solid var(--line, #dcdcd3);
+  border-radius: 30px;
+  font-size: 12px;
+  text-decoration: none;
+  max-width: 100%;
+}
+.filters a[aria-current="true"] {
+  background: #343e32;
+  color: #fff;
+}
+#catalog-current {
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+}
+#catalog-sections {
+  margin-bottom: 12px;
+}
+.card-label > a {
+  text-align: right;
+}
+@media (max-width: 750px) {
+  header {
+    flex-wrap: wrap;
+  }
+  header nav {
+    width: 100%;
+    min-width: 0;
+  }
+  header .section-links a:nth-child(n) {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
+  .section-links {
+    gap: 8px 16px;
+  }
+}
+header nav {
+  min-width: 0;
+  max-width: 100%;
+}
+@media (max-width: 750px) {
+  header {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 12px;
+  }
+  header nav {
+    grid-column: 1 / -1;
+  }
+}

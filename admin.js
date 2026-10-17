@@ -1,3 +1,9 @@
+import { orderedProducts } from "./catalog-sections.js";
+import {
+  assignmentFields,
+  bindAssignment,
+  renderSectionAdmin,
+} from "./section-admin.js";
 import { editImage } from "./image-editor.js";
 import { mountVariantAdmin } from "./variant-admin.js";
 import { renderMaterialAdmin } from "./material-admin.js";
@@ -159,7 +165,9 @@ function photos(images, kind) {
   return `<div class="image-guide">${guide}</div><div class="image-list">${images.map((url, i) => `<div class="image-item"><img src="${esc(url)}" alt="Foto cargada ${i + 1}"><small>${i === 0 && kind === "product" ? "Portada" : ""}</small><button type="button" class="secondary" data-recrop="${esc(url)}" data-crop-kind="${kind}" data-crop-scope="product" data-crop-index="${i}">Editar encuadre</button><button type="button" class="secondary" data-remove-image="${i}" data-kind="${kind}">Quitar foto</button>${i > 0 && kind === "product" ? `<button type="button" class="secondary" data-cover="${i}">Usar de portada</button>` : ""}</div>`).join("")}</div><label class="upload">${kind === "product" ? "Agregar fotografías" : "Cargar imagen de inicio"}<input type="file" data-upload="${kind}" accept="image/jpeg,image/png,image/webp" ${kind === "product" ? "multiple" : ""}></label><p class="hint">JPG, PNG o WebP, hasta 20 MB y 60 megapíxeles. Ajustá zoom y encuadre antes de cargar. Guardamos el original y generamos WebP del recorte confirmado, sin deformar ni agregar márgenes. Solo se publican al guardar los cambios.</p>`;
 }
 function render() {
-  if (tab === "products") renderProducts();
+  if (tab === "sections")
+    renderSectionAdmin($("#editor"), content, { esc, changed, render, status });
+  else if (tab === "products") renderProducts();
   else if (tab === "materials") renderMaterials();
   else if (tab === "site") renderSite();
   else renderBackup();
@@ -168,10 +176,17 @@ function render() {
 function renderProducts() {
   const p = content.products.find((p) => p.id === productId);
   $("#editor").innerHTML =
-    `<div class="editor-grid"><aside class="entity-list"><button id="new-product">＋ Agregar producto</button>${content.products.map((p) => `<button data-product="${esc(p.id)}" aria-pressed="${p.id === productId}">${esc(p.name)}<small>${esc(p.category)} · ${p.visible ? "Visible" : "Oculto"}</small></button>`).join("")}</aside>${
+    `<div class="editor-grid"><aside class="entity-list"><button id="new-product">＋ Agregar producto</button>${orderedProducts(
+      content.products,
+    )
+      .map(
+        (p) =>
+          `<button data-product="${esc(p.id)}" aria-pressed="${p.id === productId}">${esc(p.name)}<small>${esc(content.sections.find((s) => s.id === p.sectionId)?.name)} · ${p.visible ? "Visible" : "Oculto"}</small></button>`,
+      )
+      .join("")}</aside>${
       p
-        ? `<section class="editor-card"><div class="editor-toolbar"><h2>Ficha del producto</h2><button class="secondary danger" id="delete-product">Eliminar</button></div><div class="field-grid">${field("Nombre", "name", p.name, 'required maxlength="100"')}${field("Categoría", "category", p.category, 'required maxlength="100"')}${field("Medidas de referencia", "reference", p.reference)}${field("Estructura / materiales", "structure", p.structure)}<div class="full">${textarea("Descripción", "description", p.description)}</div>${field("Ancho mínimo (cm)", "min", p.range?.[0] ?? "", 'type="number" min="1"')}${field("Ancho máximo (cm)", "max", p.range?.[1] ?? "", 'type="number" min="1"')}</div><p class="hint">Dejá ambos límites vacíos si no hay un rango confirmado. Las medidas son referencias, sin promesa de disponibilidad.</p><label class="check"><input type="checkbox" data-field="visible" ${p.visible ? "checked" : ""}>Mostrar en la web</label><h3>Opciones de personalización</h3><div class="checks">${[
-            ["material", "Tapizado"],
+        ? `<section class="editor-card"><div class="editor-toolbar"><h2>Ficha del producto</h2><button class="secondary danger" id="delete-product">Eliminar</button></div><div class="field-grid">${field("Nombre", "name", p.name, 'required maxlength="100"')}${assignmentFields(p, content, esc)}${field("Medidas de referencia", "reference", p.reference)}${field("Estructura / materiales", "structure", p.structure)}<div class="full">${textarea("Descripción", "description", p.description)}</div>${field("Ancho mínimo (cm)", "min", p.range?.[0] ?? "", 'type="number" min="1"')}${field("Ancho máximo (cm)", "max", p.range?.[1] ?? "", 'type="number" min="1"')}</div><p class="hint">Dejá ambos límites vacíos si no hay un rango confirmado. Las medidas son referencias, sin promesa de disponibilidad.</p><label class="check"><input type="checkbox" data-field="visible" ${p.visible ? "checked" : ""}>Mostrar en la web</label><h3>Opciones de personalización</h3><div class="checks">${[
+            ["material", "Habilitar personalización de telas"],
             ["measure", "Medidas"],
             ["color", "Color a consultar"],
             ["layout", "Configuración modular"],
@@ -187,7 +202,14 @@ function renderProducts() {
         : '<section class="editor-card"><h2>Todavía no hay productos</h2><p>Agregá un modelo para comenzar.</p></section>'
     }</div>`;
   $("#new-product").onclick = () => {
+    if (!content.sections.length) {
+      status("Creá primero una sección en la pestaña Secciones.", true);
+      return;
+    }
     const p = {
+      sectionId: content.sections[0].id,
+      subsectionId: "",
+      sortOrder: content.products.length,
       id: "producto-" + crypto.randomUUID(),
       name: "Nuevo producto",
       category: "Sillones",
@@ -269,6 +291,7 @@ function renderProducts() {
           render();
         }),
     );
+  bindAssignment(p, content, $("#editor"), { changed, render });
   bindImages(p);
   mountVariantAdmin($("#editor .editor-card"), p, content.colors, {
     materials: content.materials,

@@ -40,6 +40,8 @@ const run = promisify(execFile),
       "quote.js",
       "content-schema.js",
       "color-catalog-migration.js",
+      "catalog-sections.js",
+      "section-admin.js",
       "image-urls.js",
       "product-gallery.js",
       "hero-slideshow.js",
@@ -212,6 +214,8 @@ const run = promisify(execFile),
     const { validateContent } = await import(join(root, "content-schema.js"));
     for (const conflict of [false, true]) {
       const legacy = legacyColors(conflict);
+      delete legacy.sections;
+      delete legacy.taxonomyVersion;
       if (conflict) {
         legacy.products[0].variants[0].images = Array.from(
           { length: 12 },
@@ -237,6 +241,8 @@ const run = promisify(execFile),
     }
     // Simular una base instalada antes del catálogo global, preservando las fichas originales.
     const legacy = legacyColors();
+    delete legacy.sections;
+    delete legacy.taxonomyVersion;
     legacy.products[2].variants = legacy.products[0].variants;
     legacy.products[0].variants = [];
     legacy.products[2].upholstery = {
@@ -247,7 +253,7 @@ const run = promisify(execFile),
     await writeFile(join(priv, "legacy-catalog.json"), JSON.stringify(legacy));
     await writeFile(
       join(priv, "seed-legacy.php"),
-      `<?php require __DIR__.'/bootstrap.php';$value=json_decode(file_get_contents(__DIR__.'/legacy-catalog.json'),true);$pdo=Atelier\\db();$pdo->exec("DELETE FROM atelier_settings WHERE setting_key IN ('colors','catalogVersion')");foreach(['products'=>'id','materials'=>'name'] as $type=>$key){$q=$pdo->prepare("UPDATE atelier_$type SET payload=? WHERE $key=?");foreach($value[$type] as $item)$q->execute([Atelier\\encode($item),$item[$key]]);}`,
+      `<?php require __DIR__.'/bootstrap.php';$value=json_decode(file_get_contents(__DIR__.'/legacy-catalog.json'),true);$pdo=Atelier\\db();$pdo->exec("DELETE FROM atelier_settings WHERE setting_key IN ('colors','catalogVersion','sections','taxonomyVersion')");foreach(['products'=>'id','materials'=>'name'] as $type=>$key){$q=$pdo->prepare("UPDATE atelier_$type SET payload=? WHERE $key=?");foreach($value[$type] as $item)$q->execute([Atelier\\encode($item),$item[$key]]);}`,
     );
     await docker([
       "exec",
@@ -259,6 +265,8 @@ const run = promisify(execFile),
       await request("/api/admin/content", "GET", null, cookie)
     ).json();
     assert.equal(saved.content.products.length, 11);
+    assert.equal(saved.content.sections.length, 2);
+    assert.equal(saved.content.products[0].sectionId, "sillones");
     assert.equal(saved.content.colors.length, 4);
     assert.equal(saved.content.products[2].variants.length, 3);
     assert.equal(
@@ -586,9 +594,12 @@ const run = promisify(execFile),
         await page.goto(base + "/admin");
         await page.locator("#panel").waitFor({ state: "visible" });
         await require("../prepared-variants-flow.cjs")(page, base, root, false);
+        await page.goto(base + "/admin");
+        await page.locator("#panel").waitFor({ state: "visible" });
+        await require("../sections-flow.cjs")(page, base, root, false);
         assert.deepEqual(errors, []);
         console.log(
-          "PASS variantes PHP/MySQL: catálogo único, casillas en dos telas, galerías por producto/color, migración sin pérdida, encuadre y WhatsApp.",
+          "PASS secciones y variantes PHP/MySQL: catálogo único, casillas en dos telas, galerías por producto/color, migración sin pérdida, encuadre y WhatsApp.",
         );
         console.log(
           "PASS navegador móvil contra PHP/MySQL: admin, guardar contenido, portada, catálogo y configurador.",

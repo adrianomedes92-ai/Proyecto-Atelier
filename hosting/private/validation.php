@@ -23,8 +23,9 @@ function image_value($value): string {
 }
 function unique_list(array $items): bool { return count(array_unique($items, SORT_STRING)) === count($items); }
 require_once __DIR__.'/color-migration.php';
+require_once __DIR__.'/sections.php';
 function validate_content($input): array {
-    $value = migrate_color_catalog(object_value($input, 'Contenido')); $s = object_value($value['site'] ?? null, 'Marca'); $site = [];
+    $value = migrate_sections(migrate_color_catalog(object_value($input, 'Contenido'))); $sections=section_values($value['sections']); $s = object_value($value['site'] ?? null, 'Marca'); $site = [];
     foreach (['name','heroTitle','heroDescription','tagline','shipping','collectionTitle','collectionDescription','contactTitle','contactDescription','footer','heroButton','collectionEyebrow','contactEyebrow'] as $key) $site[$key] = text_value($s[$key] ?? null, $key);
     if ($site['name'] === '' || $site['heroTitle'] === '') fail(400, 'Completá el nombre y el título de inicio.');
     $size = $s['brandFontSize'] ?? 22;
@@ -69,10 +70,13 @@ function validate_content($input): array {
         if (array_diff($allowed,$names)) fail(400,"$name: hay familias que ya no existen.");
         if (in_array('material',$options,true) && !$materials) fail(400,"$name: cargá al menos una familia de tapizado.");
         $images=array_values(array_filter(array_map(__NAMESPACE__.'\\image_value',list_value($p['images'] ?? [],'Fotos',12)),fn($path)=>$path!==''));
-        $products[]=['id'=>$id,'name'=>$name,'category'=>$category,'reference'=>$reference,'description'=>text_value($p['description'] ?? '','Descripción'),'structure'=>text_value($p['structure'] ?? '','Estructura',200),'visible'=>($p['visible'] ?? true)!==false,'range'=>$range,'options'=>$options,'materialNames'=>$allowed,'legs'=>string_list($p['legs'] ?? [],'Patas'),'variants'=>variant_values($p['variants'] ?? [],$colors),'image'=>image_value($p['image'] ?? ''),'images'=>$images];
+        $sectionId=text_value($p['sectionId']??null,'Sección del producto',100);$subsectionId=text_value($p['subsectionId']??'','Subsección',100);$section=null;foreach($sections as $s)if($s['id']===$sectionId)$section=$s;
+        if(!$section||($subsectionId!==''&&!in_array($subsectionId,array_column($section['subsections'],'id'),true)))fail(400,"$name: elegí una sección y subsección válidas.");
+        $sortOrder=$p['sortOrder']??0;if(!is_int($sortOrder)||$sortOrder<0||$sortOrder>1000000)fail(400,'Orden de producto inválido.');
+        $products[]=['sectionId'=>$sectionId,'subsectionId'=>$subsectionId,'sortOrder'=>$sortOrder,'id'=>$id,'name'=>$name,'category'=>$category,'reference'=>$reference,'description'=>text_value($p['description'] ?? '','Descripción'),'structure'=>text_value($p['structure'] ?? '','Estructura',200),'visible'=>($p['visible'] ?? true)!==false,'range'=>$range,'options'=>$options,'materialNames'=>$allowed,'legs'=>string_list($p['legs'] ?? [],'Patas'),'variants'=>variant_values($p['variants'] ?? [],$colors),'image'=>image_value($p['image'] ?? ''),'images'=>$images];
     }
     if (!unique_list(array_column($products,'id'))) fail(400,'Los IDs de productos deben ser únicos.');
-    return ['catalogVersion'=>2,'site'=>$site,'contact'=>$contact,'colors'=>$colors,'materials'=>$materials,'products'=>$products];
+    return ['taxonomyVersion'=>1,'sections'=>$sections,'catalogVersion'=>2,'site'=>$site,'contact'=>$contact,'colors'=>$colors,'materials'=>$materials,'products'=>$products];
 }
 
 function content_image_paths(array $content): array {

@@ -81,6 +81,12 @@ test("paquete Hostinger migra contenido y fotos sin copiar credenciales o sesion
         "atelier-private/storage/backups/content-before-prepared-variants.json"
       ],
     );
+    for (const path of [
+      "public_html/catalog-sections.js",
+      "public_html/section-admin.js",
+      "atelier-private/sections.php",
+    ])
+      assert.ok(files[path], path);
     assert.ok(files["public_html/image-editor.js"]);
     assert.ok(files["public_html/crop-geometry.js"]);
     assert.ok(!files["public_html/upholstery-preview.js"]);

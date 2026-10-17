@@ -137,3 +137,22 @@ Si un código tenía nombres distintos, revisá **Catálogo único de colores �
 Uso: cargá los colores una sola vez en **Telas y colores**, marcá los disponibles en cada tipo de tela y asigná las fotos en **Productos → Imágenes por color del mueble**. Un color habilitado en dos telas usa las mismas imágenes del producto, sin volver a subirlas. El cliente solo ve colores marcados y con fotos para ese modelo; WhatsApp incluye producto, tela, nombre y código de color.
 
 Conservá MySQL y toda `storage`, incluyendo `uploads`, `originals`, `media` y `backups`. El paquete mantiene las fotos, originales y metadatos de recorte anteriores. Las fotografías antiguas no se reprocesan ni borran automáticamente. No borres `images/`, **image-editor.js** ni **crop-geometry.js**, y no ejecutes scripts de limpieza de versiones anteriores. Consultá el flujo y los detalles de migración en README.md.
+
+## Actualización: secciones y subsecciones administrables
+
+El panel incorpora **Secciones** para crear, renombrar, ordenar y activar/desactivar secciones y subsecciones. En **Productos** se elige la sección y una subsección opcional, se cambia el orden con Antes/Después dentro de ese grupo y se habilita o deshabilita **Personalización de telas**. Las galerías por color, los originales y los encuadres se conservan. Al eliminar una categoría ocupada el panel exige reasignar sus productos; no se borran sus fotos. Si no hay otra sección de destino, creala primero.
+
+Las secciones iniciales Sillones y Muebles de madera son datos editables, no opciones fijas de la navegación. Los productos anteriores se asignan a Sillones; sus categorías anteriores, incluso las personalizadas, se conservan como subsecciones. El campo `category` anterior se mantiene por compatibilidad. Los identificadores estables permiten renombrar las categorías sin romper sus asociaciones. Las categorías vacías o inactivas no aparecen en la navegación pública; desactivarlas no elimina sus productos.
+
+**No se crean ni eliminan tablas MySQL.** Se agregan las filas JSON `sections` y `taxonomyVersion` a `atelier_settings`. Cada ficha en `atelier_products` agrega `sectionId`, `subsectionId` y `sortOrder`. El orden de secciones/subsecciones se guarda en sus listas JSON. La lectura migra los datos anteriores en memoria. Antes del primer guardado, PHP respalda el contenido anterior en `atelier-private/storage/backups/content-before-global-colors-….json`; luego guarda la estructura actual dentro de la transacción y el control de revisión existentes. El nombre histórico del respaldo se mantiene por compatibilidad. En Node también se respalda el contenido local anterior al iniciar. No hace falta ejecutar SQL ni un script de migración manual.
+
+### Cómo actualizar una web que ya funciona
+
+1. Hacé una copia de la base MySQL desde phpMyAdmin y de `atelier-private`, incluido `config.php` y **todo** `storage`.
+2. Descargá `descargas/Proyecto-Atelier-Hostinger.zip` del repositorio. Copiá los archivos de su `public_html` dentro del `public_html` real del dominio, incluyendo `.htaccess` y los módulos JavaScript. No anides otra carpeta `public_html` ni subas las carpetas fuente `hosting/public` y `hosting/private`.
+3. Actualizá los archivos PHP de `atelier-private`, incluido el nuevo **sections.php**, y conservá su `.htaccess`. **No reemplaces tu config.php ni borres/reemplaces tu storage con una carpeta vacía del paquete.** Ambas carpetas, `public_html` y `atelier-private`, son hermanas. El ZIP no incluye tus credenciales ni los datos/imágenes cargados directamente en Hostinger.
+4. No ejecutes `setup.php` ni importes `schema.sql` o `initial-content.json` sobre la instalación existente. Para actualizar no se usa el contenido inicial del paquete.
+5. Recargá el navegador sin caché. Entrá al panel, revisá **Secciones** y las asignaciones en **Productos** y guardá para persistir la migración. Revisá también telas/colores si hay avisos anteriores de confirmación.
+6. Probá los enlaces públicos `/?section=ID#catalogo` y `/?section=ID&subsection=ID#catalogo`, una galería y una consulta por WhatsApp. Los productos sin personalización de telas ofrecen una consulta directa con su nombre y sus medidas; si WhatsApp no está configurado se conserva la consulta dentro del sitio con opción de copiar.
+
+No hay que cambiar los datos de conexión MySQL de `config.php`. La ruta habitual de almacenamiento sigue siendo `'storage_dir' => __DIR__ . '/storage'` (sin punto inicial en el nombre `storage`).

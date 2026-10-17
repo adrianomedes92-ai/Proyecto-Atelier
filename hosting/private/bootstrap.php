@@ -80,12 +80,13 @@ function read_content(bool $public=false,bool $normalize=true): array {
         $settings=[];foreach ($pdo->query('SELECT setting_key,payload FROM atelier_settings') as $row) $settings[$row['setting_key']]=json_decode($row['payload'],true,512,JSON_THROW_ON_ERROR);
         if (!isset($settings['site'],$settings['contact'])) fail(503,'La base todavía no tiene contenido. Completá la instalación.');
         $content=['site'=>$settings['site'],'contact'=>$settings['contact'],'products'=>[],'materials'=>[]];if(array_key_exists('colors',$settings))$content['colors']=$settings['colors'];if(isset($settings['catalogVersion']))$content['catalogVersion']=$settings['catalogVersion'];
-        foreach (['products','materials'] as $type) foreach ($pdo->query("SELECT payload FROM atelier_$type ORDER BY sort_order") as $row) { $item=json_decode($row['payload'],true,512,JSON_THROW_ON_ERROR);if ($type!=='products' || !$public || $item['visible']) $content[$type][]=$item; }
-        $pdo->commit();return ['revision'=>(int)$revision,'content'=>$normalize?validate_content($content):$content];
+        foreach(['sections','taxonomyVersion'] as $key)if(array_key_exists($key,$settings))$content[$key]=$settings[$key];
+        foreach (['products','materials'] as $type) foreach ($pdo->query("SELECT payload FROM atelier_$type ORDER BY sort_order") as $row) { $item=json_decode($row['payload'],true,512,JSON_THROW_ON_ERROR);$content[$type][]=$item; }
+        $pdo->commit();$content=$normalize?validate_content($content):$content;if($public)$content=public_catalog($content);return ['revision'=>(int)$revision,'content'=>$content];
     } catch (\Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack();throw $e; }
 }
 function write_rows(array $content): void {
-    $pdo=db();foreach (['site','contact','colors','catalogVersion'] as $key) $pdo->prepare('REPLACE INTO atelier_settings (setting_key,payload) VALUES (?,?)')->execute([$key,encode($content[$key])]);
+    $pdo=db();foreach (['site','contact','colors','catalogVersion','sections','taxonomyVersion'] as $key) $pdo->prepare('REPLACE INTO atelier_settings (setting_key,payload) VALUES (?,?)')->execute([$key,encode($content[$key])]);
     foreach (['products'=>'id','materials'=>'name'] as $type=>$id) {
         $pdo->exec("DELETE FROM atelier_$type");$q=$pdo->prepare("INSERT INTO atelier_$type ($id,sort_order,payload) VALUES (?,?,?)");
         foreach ($content[$type] as $i=>$item) $q->execute([$item[$id],$i,encode($item)]);
@@ -101,7 +102,7 @@ require __DIR__.'/media.php';
 
 // Antes de normalizar las fichas antiguas, guardar su versión completa fuera de public_html.
 function archive_retired_content(array $saved): void {
-    $legacy=!array_key_exists('colors',$saved['content']);
+    $legacy=!array_key_exists('sections',$saved['content'])||!array_key_exists('colors',$saved['content']);
     foreach($saved['content']['products'] as $p)if(array_key_exists('upholstery',$p))$legacy=true;
     foreach($saved['content']['materials'] as $m)if(array_key_exists('texture',$m))$legacy=true;
     if(!$legacy)return;

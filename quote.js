@@ -49,9 +49,12 @@ export function message(product, s) {
       `Medida de referencia del catálogo: ${product.reference}`,
     product.options.includes("measure") &&
       `Medida solicitada: ${s.measure === "custom" ? s.custom : s.measure === "range" ? s.width + " cm de ancho (otras dimensiones a confirmar)" : product.reference}`,
-    m &&
+    product.options.includes("material") &&
+      m &&
       `Tapizado: ${m.type} · ${m.name}${m.code ? " · Código de tela: " + m.code : ""}`,
-    `Color: ${colors.find((v) => v.code === s.color)?.name ? colors.find((v) => v.code === s.color).name + " · " : ""}${s.color || "A definir con la fábrica; solicitar muestrario"}`,
+    (product.options.includes("material") ||
+      product.options.includes("color")) &&
+      `Color: ${colors.find((v) => v.code === s.color)?.name ? colors.find((v) => v.code === s.color).name + " · " : ""}${s.color || "A definir con la fábrica; solicitar muestrario"}`,
     s.leg && `Patas: ${s.leg}`,
     s.layout && `Configuración modular: ${s.layout}`,
     s.notes?.trim() && `Observaciones: ${s.notes.trim()}`,

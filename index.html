@@ -14,8 +14,8 @@
     <header>
       <a class="brand" href="#inicio">PROYECTO <strong>ATELIER</strong></a>
       <nav aria-label="Principal">
-        <a href="#catalogo">Colección</a><a href="#proceso">Cómo funciona</a
-        ><a href="#contacto">Contacto ↗</a>
+        <span id="section-links" class="section-links"></span
+        ><a href="#proceso">Cómo funciona</a><a href="#contacto">Contacto ↗</a>
       </nav>
     </header>
     <main>
@@ -63,7 +63,13 @@
           </div>
           <p>Diseños que se adaptan a vos.<br />Elegí el punto de partida.</p>
         </div>
-        <div id="filters" class="filters" aria-label="Categorías"></div>
+        <nav
+          id="catalog-sections"
+          class="filters catalog-sections"
+          aria-label="Secciones del catálogo"
+        ></nav>
+        <h3 id="catalog-current" aria-live="polite"></h3>
+        <div id="filters" class="filters" aria-label="Subsecciones"></div>
         <div id="cards" class="cards"></div>
       </section>
       <section id="contacto" class="contact">

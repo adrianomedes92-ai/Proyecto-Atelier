@@ -477,3 +477,37 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.taxonomy-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #dcdcd3;
+}
+.taxonomy-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) auto;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 16px;
+  background: #f4f3ed;
+  border-radius: 4px;
+}
+.taxonomy-row > *,
+.field-grid > * {
+  min-width: 0;
+}
+.taxonomy-row input:not([type="checkbox"]),
+.taxonomy-row select {
+  width: 100%;
+}
+.taxonomy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+@media (max-width: 640px) {
+  .taxonomy-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

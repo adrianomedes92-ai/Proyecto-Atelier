@@ -1,3 +1,5 @@
+import { migrateSections } from "./catalog-sections.js";
+export let sections = [];
 import { variantsFor } from "./prepared-variants.js";
 // Verificar con la fábrica si corresponde 54 + 11 o 54 + 9 + 11 antes de publicar.
 export let contact = {
@@ -107,21 +109,23 @@ export let site = {
   ],
 };
 export function initialContent() {
-  return structuredClone({
-    catalogVersion: 2,
-    site,
-    contact,
-    materials,
-    colors,
-    products,
-  });
+  return migrateSections(
+    structuredClone({
+      catalogVersion: 2,
+      site,
+      contact,
+      materials,
+      colors,
+      products,
+    }),
+  );
 }
 export async function loadContent() {
   const response = await fetch("/api/content", { cache: "no-store" });
   if (!response.ok)
     throw Error("No se pudo cargar el catálogo. Intentá nuevamente.");
   const data = await response.json();
-  ({ site, contact, materials, colors, products } = data.content);
+  ({ site, contact, materials, colors, products, sections } = data.content);
   return data;
 }
 export function availableVariants(product) {
